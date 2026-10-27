@@ -31,6 +31,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/products/", include("products.urls")),
     path("api/stitching/",include("custom_stitching.urls")),
+    path("api/orders/", include("orders.urls")),
 ]
 
 if settings.DEBUG:
