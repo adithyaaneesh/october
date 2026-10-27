@@ -87,7 +87,7 @@ const AuthPage = ({ onClose, onLogin }) => {
       }
 
       // Keep the access token in memory rather than localStorage.
-      onLogin(data.access);
+      onLogin(data.access, data.refresh);
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {

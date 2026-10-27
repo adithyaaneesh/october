@@ -65,9 +65,7 @@ const App = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   
-  const handleLogin = async (token) => {
-    setAccessToken(token);
-
+  const handleLogin = async (token, refreshToken) => {
     try {
       const response = await fetch(`${API_URL}/api/accounts/profile/`, {
         headers: {
@@ -80,14 +78,104 @@ const App = () => {
       }
 
       const user = await response.json();
+
+      // Persist tokens so the session can be restored after a page refresh.
+      localStorage.setItem("october_access_token", token);
+      if (refreshToken) {
+        localStorage.setItem("october_refresh_token", refreshToken);
+      }
+
+      setAccessToken(token);
       setLoggedInUser(user);
       setIsAuthOpen(false);
     } catch (error) {
+      localStorage.removeItem("october_access_token");
+      localStorage.removeItem("october_refresh_token");
       setAccessToken(null);
       setLoggedInUser(null);
       console.error("Profile error:", error);
+      alert(error.message || "Unable to log in. Please try again.");
     }
   };
+
+  // Restore the saved login when the app loads or the page is refreshed.
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      const savedAccessToken = localStorage.getItem("october_access_token");
+      const savedRefreshToken = localStorage.getItem("october_refresh_token");
+
+      if (!savedAccessToken) {
+        setAccessToken(null);
+        setLoggedInUser(null);
+        return;
+      }
+
+      try {
+        let token = savedAccessToken;
+        let response = await fetch(`${API_URL}/api/accounts/profile/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // If the access token expired, request a new one using the refresh token.
+        if (response.status === 401 && savedRefreshToken) {
+          const refreshResponse = await fetch(
+            `${API_URL}/api/accounts/token/refresh/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ refresh: savedRefreshToken }),
+            }
+          );
+
+          if (!refreshResponse.ok) {
+            throw new Error("Your session has expired. Please log in again.");
+          }
+
+          const refreshData = await refreshResponse.json();
+          token = refreshData.access;
+          localStorage.setItem("october_access_token", token);
+
+          response = await fetch(`${API_URL}/api/accounts/profile/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
+        if (!response.ok) {
+          throw new Error("Your session has expired. Please log in again.");
+        }
+
+        const user = await response.json();
+
+        if (!cancelled) {
+          setAccessToken(token);
+          setLoggedInUser(user);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Session restoration failed:", error);
+          localStorage.removeItem("october_access_token");
+          localStorage.removeItem("october_refresh_token");
+          setAccessToken(null);
+          setLoggedInUser(null);
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -234,10 +322,13 @@ const App = () => {
       accessToken={accessToken}
       onBack={() => setIsProfileOpen(false)}
       onLogout={() => {
+        localStorage.removeItem("october_access_token");
+        localStorage.removeItem("october_refresh_token");
         setAccessToken(null);
         setLoggedInUser(null);
         setIsProfileOpen(false);
         setIsAuthOpen(false);
+        setIsCartOpen(false);
         setCart([]);
       }}
     />
