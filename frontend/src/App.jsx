@@ -1,6 +1,4 @@
-
 import { useEffect, useState } from "react";
-
 import {
   ArrowRight,
   Heart,
@@ -11,8 +9,8 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
-
 import "./App.css";
+import StitchingForm from "./components/StitchingForm";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -304,26 +302,7 @@ const App = () => {
           </div>
         </section>
 
-        <section className="stitching-section" id="stitching">
-          <p className="eyebrow">LET'S MAKE IT YOURS</p>
-          <h2>Have a design in mind?</h2>
-          <p>
-            Start a conversation about your custom garment, measurements,
-            fabric and budget.
-          </p>
-          
-          <a
-            className="button button-dark"
-            href={whatsappLink}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MessageCircle size={17} /> TALK TO US ON WHATSAPP
-          </a>
-          <p className="small-note">
-            Your stitching request form will be connected to Django next.
-          </p>
-        </section>
+        <StitchingForm />
       </main>
 
       <footer className="site-footer" id="story">
