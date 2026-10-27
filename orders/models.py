@@ -69,6 +69,10 @@ class OrderItem(models.Model):
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
 
+    
     @property
     def subtotal(self):
+        if self.price_at_purchase is None or self.quantity is None:
+            return None
+
         return self.price_at_purchase * self.quantity

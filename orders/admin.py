@@ -1,12 +1,36 @@
 
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.db import transaction
+
 from .models import Order, OrderItem
+from products.models import Product
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("price_at_purchase",)
+    can_delete = False
+
+    fields = (
+        "product",
+        "quantity",
+        "price_at_purchase",
+        "display_subtotal",
+    )
+
+    readonly_fields = (
+        "product",
+        "quantity",
+        "price_at_purchase",
+        "display_subtotal",
+    )
+
+    @admin.display(description="Subtotal")
+    def display_subtotal(self, obj):
+        if obj.price_at_purchase is None or obj.quantity is None:
+            return "Missing price or quantity"
+
+        return obj.subtotal
 
 
 @admin.register(Order)
@@ -15,20 +39,194 @@ class OrderAdmin(admin.ModelAdmin):
         "id",
         "customer_name",
         "phone_number",
-        "total_amount",
+        "email",
         "status",
+        "total_amount",
         "created_at",
     )
 
     list_filter = ("status", "created_at")
-    search_fields = ("customer_name", "phone_number", "email")
-    readonly_fields = ("created_at", "updated_at")
+
+    search_fields = (
+        "customer_name",
+        "phone_number",
+        "email",
+    )
+
+    ordering = ("-created_at",)
+
+    readonly_fields = (
+        "user",
+        "customer_name",
+        "phone_number",
+        "email",
+        "delivery_address",
+        "total_amount",
+        "created_at",
+        "updated_at",
+        "status",
+    )
+
     inlines = [OrderItemInline]
+
+    actions = [
+        "mark_confirmed",
+        "mark_processing",
+        "mark_shipped",
+        "mark_completed",
+        "cancel_orders_and_restore_stock",
+    ]
+
+    def update_status(self, request, queryset, new_status):
+        allowed = {
+            "confirmed": ("pending",),
+            "processing": ("confirmed",),
+            "shipped": ("processing",),
+            "completed": ("shipped",),
+        }
+
+        updated = 0
+
+        for selected_order in queryset:
+            with transaction.atomic():
+                order = (
+                    Order.objects.select_for_update()
+                    .filter(pk=selected_order.pk)
+                    .first()
+                )
+
+                if order is None:
+                    continue
+
+                if order.status not in allowed.get(new_status, ()):
+                    continue
+
+                order.status = new_status
+                order.save(update_fields=["status", "updated_at"])
+                updated += 1
+
+        self.message_user(
+            request,
+            f"Updated {updated} order(s) to {new_status}.",
+            level=messages.SUCCESS,
+        )
+
+    @admin.action(description="Mark selected orders as Confirmed")
+    def mark_confirmed(self, request, queryset):
+        self.update_status(request, queryset, "confirmed")
+
+    @admin.action(description="Mark selected orders as Processing")
+    def mark_processing(self, request, queryset):
+        self.update_status(request, queryset, "processing")
+
+    @admin.action(description="Mark selected orders as Shipped")
+    def mark_shipped(self, request, queryset):
+        self.update_status(request, queryset, "shipped")
+
+    @admin.action(description="Mark selected orders as Completed")
+    def mark_completed(self, request, queryset):
+        self.update_status(request, queryset, "completed")
+
+    @admin.action(
+        description="Cancel eligible orders and restore product stock"
+    )
+    def cancel_orders_and_restore_stock(self, request, queryset):
+        cancelled = 0
+        skipped = 0
+
+        for selected_order in queryset:
+            with transaction.atomic():
+                order = (
+                    Order.objects.select_for_update()
+                    .filter(pk=selected_order.pk)
+                    .first()
+                )
+
+                if order is None or order.status not in (
+                    "pending",
+                    "confirmed",
+                    "processing",
+                ):
+                    skipped += 1
+                    continue
+
+                items = list(
+                    OrderItem.objects.filter(order=order)
+                )
+
+                if not items or any(
+                    item.quantity is None
+                    or item.quantity <= 0
+                    or item.product_id is None
+                    for item in items
+                ):
+                    skipped += 1
+                    continue
+
+                product_ids = sorted({
+                    item.product_id for item in items
+                })
+
+                locked_products = {
+                    product.pk: product
+                    for product in (
+                        Product.objects.select_for_update()
+                        .filter(pk__in=product_ids)
+                        .order_by("pk")
+                    )
+                }
+
+                if len(locked_products) != len(product_ids):
+                    skipped += 1
+                    continue
+
+                for item in items:
+                    product = locked_products[item.product_id]
+                    product.stock_quantity += item.quantity
+                    product.is_available = product.stock_quantity > 0
+                    product.save(
+                        update_fields=[
+                            "stock_quantity",
+                            "is_available",
+                        ]
+                    )
+
+                order.status = "cancelled"
+                order.save(update_fields=["status", "updated_at"])
+                cancelled += 1
+
+        if cancelled:
+            self.message_user(
+                request,
+                f"Cancelled {cancelled} order(s) and restored stock.",
+                level=messages.SUCCESS,
+            )
+
+        if skipped:
+            self.message_user(
+                request,
+                f"Skipped {skipped} order(s) due to status or item data.",
+                level=messages.WARNING,
+            )
 
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
+        "order",
+        "product",
+        "quantity",
+        "price_at_purchase",
+    )
+
+    search_fields = (
+        "order__customer_name",
+        "order__email",
+        "product__name",
+    )
+
+    readonly_fields = (
         "order",
         "product",
         "quantity",
