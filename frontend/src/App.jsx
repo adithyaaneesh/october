@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import "./App.css";
 import StitchingForm from "./components/StitchingForm";
+import ShoppingCart from "./components/ShoppingCart";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -57,6 +58,8 @@ const App = () => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -101,6 +104,40 @@ const App = () => {
 
   const displayProducts = products.length ? products : sampleProducts;
 
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const addToCart = (product) => {
+    if (!product.is_available || product.stock_quantity < 1) {
+      return;
+    }
+
+    setCart((previousCart) => {
+      const existing = previousCart.find(
+        (item) => item.id === product.id
+      );
+
+      if (existing) {
+        if (existing.cartQuantity >= product.stock_quantity) {
+          return previousCart;
+        }
+
+        return previousCart.map((item) =>
+          item.id === product.id
+            ? { ...item, cartQuantity: item.cartQuantity + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...previousCart,
+        { ...product, cartQuantity: 1 },
+      ];
+    });
+
+    setIsCartOpen(true);
+  };
+
   const whatsappLink =
     "https://wa.me/?text=" +
     encodeURIComponent(
@@ -136,9 +173,19 @@ const App = () => {
           </a>
         </nav>
 
-        <a href="#thrift" className="header-bag" aria-label="Shop thrift">
-          <ShoppingBag size={21} strokeWidth={1.5} />
-        </a>
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          aria-label={`Open shopping cart, ${cart.reduce(
+            (sum, item) => sum + item.cartQuantity,
+            0
+          )} items`}
+        >
+          <ShoppingBag size={20} />
+          <span>
+            {cart.reduce((sum, item) => sum + item.cartQuantity, 0)}
+          </span>
+        </button>
       </header>
 
       <main>
@@ -245,6 +292,7 @@ const App = () => {
                       <h3>{product.name}</h3>
                       <span>{money(product.price)}</span>
                     </div>
+                    
                     <p>
                       {product.category_display || product.category} &nbsp; | &nbsp;
                       SIZE {product.size}
@@ -252,7 +300,23 @@ const App = () => {
                     <p className="condition">
                       {product.condition_display ||
                         product.condition?.replaceAll("_", " ")}
-                    </p>
+                    </p>                                     
+                    <button
+                      type="button"
+                      className="add-to-cart-button"
+                      onClick={() => addToCart(product)}
+                      disabled={
+                        !Number.isInteger(product.id) ||
+                        product.is_available !== true ||
+                        product.stock_quantity < 1
+                      }
+                    >
+                      {!Number.isInteger(product.id)
+                        ? "Add product in Admin"
+                        : product.is_available && product.stock_quantity > 0
+                          ? "Add to Bag"
+                          : "Sold Out"}
+                    </button>
                     <a
                       className="product-enquire"
                       href={
@@ -310,7 +374,7 @@ const App = () => {
         <p>THRIFT AND CREATE</p>
         <span>Clothes with a past. Creations with a future.</span>
         <a
-          href="https://instagram.com/"
+          href="https://instagram.com/october.tnc/"
           target="_blank"
           rel="noreferrer"
           aria-label="Instagram"
@@ -320,6 +384,13 @@ const App = () => {
 
         <small>© {new Date().getFullYear()} OCTOBER. Made with care.</small>
       </footer>
+      {isCartOpen && (
+        <ShoppingCart
+          cart={cart}
+          setCart={setCart}
+          onClose={() => setIsCartOpen(false)}
+        />
+      )}
     </div>
   );
 };
