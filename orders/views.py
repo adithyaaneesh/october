@@ -1,15 +1,11 @@
-
-from django.db import transaction
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Order
-from products.models import Product
 from .serializers import OrderCreateSerializer, OrderOutputSerializer
-
+from .services import cancel_order, OrderCancellationError
 
 class OrderCreateAPIView(generics.GenericAPIView):
     serializer_class = OrderCreateSerializer
@@ -47,45 +43,20 @@ class CancelOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        with transaction.atomic():
-            order = get_object_or_404(
-                Order.objects.select_for_update(),
-                pk=pk,
-                user=request.user,
+        try:
+            order = cancel_order(pk, user=request.user)
+
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-            # Prevent repeated cancellation and cancellation after shipping.
-            if order.status in ["shipped", "completed", "cancelled"]:
-                return Response(
-                    {
-                        "error": (
-                            f"Order cannot be cancelled because its "
-                            f"status is {order.status}."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Lock products and restore the quantities from this order.
-            items = list(
-                order.items.select_related("product").order_by("product_id")
+        except OrderCancellationError as exc:
+            return Response(
+                {"error": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-            for item in items:
-                product = Product.objects.select_for_update().get(
-                    pk=item.product_id
-                )
-
-                product.stock_quantity += item.quantity
-                product.is_available = product.stock_quantity > 0
-
-                product.save(
-                    update_fields=["stock_quantity", "is_available"]
-                )
-
-            # Update the order only after restoring its stock.
-            order.status = "cancelled"
-            order.save(update_fields=["status", "updated_at"])
 
         return Response(
             {

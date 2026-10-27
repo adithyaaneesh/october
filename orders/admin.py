@@ -1,9 +1,8 @@
 
 from django.contrib import admin, messages
 from django.db import transaction
-
+from .services import cancel_order, OrderCancellationError
 from .models import Order, OrderItem
-from products.models import Product
 
 
 class OrderItemInline(admin.TabularInline):
@@ -130,70 +129,21 @@ class OrderAdmin(admin.ModelAdmin):
     @admin.action(
         description="Cancel eligible orders and restore product stock"
     )
+    
+    @admin.action(
+        description="Cancel eligible orders and restore product stock"
+    )
     def cancel_orders_and_restore_stock(self, request, queryset):
         cancelled = 0
         skipped = 0
 
         for selected_order in queryset:
-            with transaction.atomic():
-                order = (
-                    Order.objects.select_for_update()
-                    .filter(pk=selected_order.pk)
-                    .first()
-                )
-
-                if order is None or order.status not in (
-                    "pending",
-                    "confirmed",
-                    "processing",
-                ):
-                    skipped += 1
-                    continue
-
-                items = list(
-                    OrderItem.objects.filter(order=order)
-                )
-
-                if not items or any(
-                    item.quantity is None
-                    or item.quantity <= 0
-                    or item.product_id is None
-                    for item in items
-                ):
-                    skipped += 1
-                    continue
-
-                product_ids = sorted({
-                    item.product_id for item in items
-                })
-
-                locked_products = {
-                    product.pk: product
-                    for product in (
-                        Product.objects.select_for_update()
-                        .filter(pk__in=product_ids)
-                        .order_by("pk")
-                    )
-                }
-
-                if len(locked_products) != len(product_ids):
-                    skipped += 1
-                    continue
-
-                for item in items:
-                    product = locked_products[item.product_id]
-                    product.stock_quantity += item.quantity
-                    product.is_available = product.stock_quantity > 0
-                    product.save(
-                        update_fields=[
-                            "stock_quantity",
-                            "is_available",
-                        ]
-                    )
-
-                order.status = "cancelled"
-                order.save(update_fields=["status", "updated_at"])
+            try:
+                cancel_order(selected_order.pk)
                 cancelled += 1
+
+            except (Order.DoesNotExist, OrderCancellationError):
+                skipped += 1
 
         if cancelled:
             self.message_user(
@@ -205,9 +155,11 @@ class OrderAdmin(admin.ModelAdmin):
         if skipped:
             self.message_user(
                 request,
-                f"Skipped {skipped} order(s) due to status or item data.",
+                f"Skipped {skipped} order(s): status or order data "
+                "does not permit cancellation.",
                 level=messages.WARNING,
             )
+
 
 
 @admin.register(OrderItem)
