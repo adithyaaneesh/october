@@ -13,6 +13,7 @@ import "./App.css";
 import StitchingForm from "./components/StitchingForm";
 import ShoppingCart from "./components/ShoppingCart";
 import AuthPage from "./components/AuthPage";
+import ProfilePage from "./components/ProfilePage";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -61,6 +62,7 @@ const App = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [accessToken, setAccessToken] = useState(null);
   const [loggedInUser, setLoggedInUser] = useState(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   
   const handleLogin = async (token) => {
@@ -200,7 +202,13 @@ const App = () => {
         </nav>
         <button
           type="button"
-          onClick={() => setIsAuthOpen(true)}
+          onClick={() => {
+            if (loggedInUser) {
+              setIsProfileOpen(true);
+            } else {
+              setIsAuthOpen(true);
+            }
+          }}
         >
           {loggedInUser
             ? `Hi, ${loggedInUser.first_name || loggedInUser.username}`
@@ -220,7 +228,20 @@ const App = () => {
           </span>
         </button>
       </header>
-
+      {isProfileOpen && loggedInUser ? (
+      <ProfilePage
+      user={loggedInUser}
+      accessToken={accessToken}
+      onBack={() => setIsProfileOpen(false)}
+      onLogout={() => {
+        setAccessToken(null);
+        setLoggedInUser(null);
+        setIsProfileOpen(false);
+        setIsAuthOpen(false);
+        setCart([]);
+      }}
+    />
+  ) : (
       <main>
         <section className="hero" id="home">
           <div className="hero-copy">
@@ -401,7 +422,7 @@ const App = () => {
 
         <StitchingForm />
       </main>
-
+      )}
       <footer className="site-footer" id="story">
         <a href="#home" className="footer-brand">OCTOBER</a>
         <p>THRIFT AND CREATE</p>
@@ -421,6 +442,11 @@ const App = () => {
         <ShoppingCart
           cart={cart}
           setCart={setCart}
+          accessToken={accessToken}
+          onLoginRequired={() => {
+            setIsCartOpen(false);
+            setIsAuthOpen(true);
+          }}
           onClose={() => setIsCartOpen(false)}
         />
       )}

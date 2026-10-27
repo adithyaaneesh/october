@@ -4,11 +4,17 @@ import { Minus, Plus, Trash2, X, ShoppingBag } from "lucide-react";
 
 const API_URL = "http://127.0.0.1:8000";
 
-// Add your business WhatsApp number later.
-// Include country code, without + or spaces.
+// Replace with your store's WhatsApp number.
+// Include country code, without +, spaces, or hyphens.
 const BUSINESS_WHATSAPP = "";
 
-const ShoppingCart = ({ cart, setCart, onClose }) => {
+const ShoppingCart = ({
+  cart,
+  setCart,
+  accessToken,
+  onLoginRequired,
+  onClose,
+}) => {
   const [customer, setCustomer] = useState({
     customer_name: "",
     phone_number: "",
@@ -45,20 +51,28 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
   };
 
   const total = cart.reduce(
-    (sum, item) => sum + Number(item.price) * item.cartQuantity,
+    (sum, item) =>
+      sum + Number(item.price) * item.cartQuantity,
     0
   );
 
   const handleChange = (event) => {
-    setCustomer({
-      ...customer,
-      [event.target.name]: event.target.value,
-    });
+    const { name, value } = event.target;
+
+    setCustomer((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
   const handleCheckout = async (event) => {
     event.preventDefault();
     setError("");
+
+    if (!accessToken) {
+      setError("Please log in or register before placing an order.");
+      return;
+    }
 
     if (cart.length === 0) {
       setError("Your cart is empty.");
@@ -72,6 +86,7 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           ...customer,
@@ -85,9 +100,23 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            "Your login session may have expired. Please log in again."
+          );
+        }
+
         const message =
-          typeof data === "object"
-            ? Object.values(data).flat(Infinity).join(" ")
+          typeof data === "object" && data !== null
+            ? Object.entries(data)
+                .map(([key, value]) => {
+                  const text = Array.isArray(value)
+                    ? value.flat(Infinity).join(" ")
+                    : String(value);
+
+                  return `${key}: ${text}`;
+                })
+                .join(" ")
             : "Unable to place your order.";
 
         throw new Error(message || "Unable to place your order.");
@@ -96,61 +125,76 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
       setSuccessOrder(data);
       setCart([]);
 
-      // Refresh the product list so the displayed stock is current.
+      // Notify the storefront that product availability may have changed.
       window.dispatchEvent(new Event("products-updated"));
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(
+        err.message || "Something went wrong. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  
-    const continueToWhatsApp = () => {
+  const continueToWhatsApp = () => {
+    setError("");
+
     if (!BUSINESS_WHATSAPP) {
-        setError(
-        "WhatsApp is not configured yet. Please contact the store directly."
-        );
-        return;
+      setError(
+        "The store WhatsApp number has not been configured yet."
+      );
+      return;
+    }
+
+    if (!successOrder) {
+      return;
     }
 
     const message = [
-        `Hello OCTOBER! I have placed order #${successOrder.id}.`,
-        "",
-        "Please help me confirm payment and delivery details.",
-        "",
-        ...successOrder.items.map(
+      `Hello OCTOBER! I have submitted order #${successOrder.id}.`,
+      "",
+      "I would like to discuss and confirm payment and delivery details.",
+      "",
+      ...successOrder.items.map(
         (item) =>
-            `${item.product_name} x ${item.quantity} — ₹${Number(
+          `${item.product_name} x ${item.quantity} - ₹${Number(
             item.subtotal
-            ).toFixed(2)}`
-        ),
-        "",
-        `Order total: ₹${Number(successOrder.total_amount).toFixed(2)}`,
-        `Customer name: ${successOrder.customer_name}`,
-        `Phone: ${successOrder.phone_number}`,
-        "",
-        "Please confirm the payment method, payment status and delivery arrangements with me.",
+          ).toFixed(2)}`
+      ),
+      "",
+      `Order total: ₹${Number(
+        successOrder.total_amount
+      ).toFixed(2)}`,
+      `Customer name: ${successOrder.customer_name}`,
+      `Phone: ${successOrder.phone_number}`,
+      "",
+      "Please contact me to discuss payment and delivery. I understand my order will be confirmed and packed only after these details are agreed upon.",
     ].join("\n");
 
     const whatsappUrl =
-        `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(message)}`;
+      `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(message)}`;
 
     window.open(
-        whatsappUrl,
-        "_blank",
-        "noopener,noreferrer"
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
     );
-    };
-
+  };
 
   return (
     <div className="cart-overlay">
-      <section className="cart-panel" aria-label="Shopping cart">
+      <section
+        className="cart-panel"
+        aria-label="Shopping cart"
+      >
         <header className="cart-header">
           <div>
-            <p className="cart-eyebrow">OCTOBER | THRIFT AND CREATE</p>
-            <h2>{successOrder ? "Order placed" : "Your shopping bag"}</h2>
+            <p className="cart-eyebrow">
+              OCTOBER | THRIFT AND CREATE
+            </p>
+            <h2>
+              {successOrder ? "Order request received" : "Your shopping bag"}
+            </h2>
           </div>
 
           <button
@@ -166,23 +210,30 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
         {successOrder ? (
           <div className="cart-success">
             <ShoppingBag size={36} />
-            <h3>Thank you for your order!</h3>
+
+            <h3>Thank you for choosing OCTOBER!</h3>
+
             <p>Order number: #{successOrder.id}</p>
+
             <p>
-              Total: ₹{Number(successOrder.total_amount).toFixed(2)}
+              Total: ₹
+              {Number(successOrder.total_amount).toFixed(2)}
             </p>
-            
+
             <p>
-            Your order request has been received! Thank you for choosing OCTOBER.
-            Please click the WhatsApp button below to contact our store. We'll discuss and confirm your payment and delivery details with you directly.
-            Your order will be confirmed and packed only after we have discussed and agreed on these details through WhatsApp.
+              Your order request has been received. Contact our
+              store through WhatsApp to discuss and confirm payment
+              and delivery details. Your order will be confirmed
+              and packed only after these details have been agreed
+              upon with our store.
             </p>
+
             {error && (
-            <p className="cart-error" role="alert">
+              <p className="cart-error" role="alert">
                 {error}
-            </p>
+              </p>
             )}
-            
+
             <button
               type="button"
               className="cart-checkout-button"
@@ -203,7 +254,10 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
           <div className="cart-empty">
             <ShoppingBag size={38} />
             <h3>Your bag is waiting</h3>
-            <p>Discover something special from our thrift collection.</p>
+            <p>
+              Discover something special from our thrift collection.
+            </p>
+
             <button
               type="button"
               className="cart-checkout-button"
@@ -235,7 +289,10 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
 
                   <div className="cart-item-details">
                     <h3>{item.name}</h3>
-                    <p>₹{Number(item.price).toFixed(2)}</p>
+
+                    <p>
+                      ₹{Number(item.price).toFixed(2)}
+                    </p>
 
                     <div className="cart-quantity">
                       <button
@@ -268,6 +325,7 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
                         Number(item.price) * item.cartQuantity
                       ).toFixed(2)}
                     </strong>
+
                     <button
                       type="button"
                       className="cart-remove-button"
@@ -287,11 +345,15 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
             </div>
 
             <p className="cart-note">
-              Final availability and delivery arrangements will be confirmed
-              by OCTOBER. Payment is coordinated through WhatsApp.
+              Payment and delivery arrangements will be discussed
+              through WhatsApp. Your order is confirmed and packed
+              only after you and our store agree on the details.
             </p>
 
-            <form className="cart-checkout-form" onSubmit={handleCheckout}>
+            <form
+              className="cart-checkout-form"
+              onSubmit={handleCheckout}
+            >
               <h3>Delivery details</h3>
 
               <label>
@@ -342,7 +404,20 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
                 />
               </label>
 
-              {error && <p className="cart-error" role="alert">{error}</p>}
+              {error && (
+                <div className="cart-error" role="alert">
+                  <p>{error}</p>
+
+                  {!accessToken && (
+                    <button
+                      type="button"
+                      onClick={onLoginRequired}
+                    >
+                      Login / Register
+                    </button>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -351,6 +426,12 @@ const ShoppingCart = ({ cart, setCart, onClose }) => {
               >
                 {loading ? "Placing order..." : "Place order"}
               </button>
+
+              {!accessToken && (
+                <p className="cart-note">
+                  You must log in or register before placing an order.
+                </p>
+              )}
             </form>
           </>
         )}

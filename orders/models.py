@@ -1,4 +1,4 @@
-
+from django.conf import settings
 from django.db import models
 
 
@@ -11,7 +11,13 @@ class Order(models.Model):
         ("completed", "Completed"),
         ("cancelled", "Cancelled"),
     ]
-
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
     customer_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=20)
     email = models.EmailField(blank=True)
