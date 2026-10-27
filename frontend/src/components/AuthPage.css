@@ -1,0 +1,167 @@
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  overflow-y: auto;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(38, 31, 25, 0.65);
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 460px;
+  padding: 36px;
+  background: #fbf8f2;
+  color: #302820;
+}
+
+.auth-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.auth-brand {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  margin: 30px 0;
+}
+
+.auth-brand span {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 31px;
+  letter-spacing: 4px;
+}
+
+.auth-brand small {
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.auth-eyebrow {
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+.auth-panel h1 {
+  margin: 0 0 10px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(28px, 5vw, 36px);
+  font-weight: 400;
+}
+
+.auth-description {
+  margin: 0 0 26px;
+  color: #74695d;
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.auth-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d7cbbb;
+  border-radius: 0;
+  background: #fffdf9;
+  color: #302820;
+  font: inherit;
+}
+
+.auth-password-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d7cbbb;
+  background: #fffdf9;
+}
+
+.auth-password-wrap input {
+  border: 0;
+}
+
+.auth-password-wrap button {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.auth-submit {
+  min-height: 48px;
+  margin-top: 6px;
+  border: 1px solid #302820;
+  background: #302820;
+  color: #fffdf9;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.auth-error,
+.auth-message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.auth-error {
+  color: #a22e25;
+}
+
+.auth-message {
+  color: #356b42;
+}
+
+.auth-switch {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.auth-switch button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6d4d32;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .auth-overlay {
+    padding: 12px;
+  }
+
+  .auth-panel {
+    padding: 24px 18px;
+  }
+}

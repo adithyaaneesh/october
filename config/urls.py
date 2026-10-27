@@ -32,6 +32,7 @@ urlpatterns = [
     path("api/products/", include("products.urls")),
     path("api/stitching/",include("custom_stitching.urls")),
     path("api/orders/", include("orders.urls")),
+    path("api/accounts/", include("accounts.urls")),
 ]
 
 if settings.DEBUG:

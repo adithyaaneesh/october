@@ -12,6 +12,7 @@ import {
 import "./App.css";
 import StitchingForm from "./components/StitchingForm";
 import ShoppingCart from "./components/ShoppingCart";
+import AuthPage from "./components/AuthPage";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -57,9 +58,34 @@ const App = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [accessToken, setAccessToken] = useState(null);
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
   
+  const handleLogin = async (token) => {
+    setAccessToken(token);
 
+    try {
+      const response = await fetch(`${API_URL}/api/accounts/profile/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not load your profile.");
+      }
+
+      const user = await response.json();
+      setLoggedInUser(user);
+      setIsAuthOpen(false);
+    } catch (error) {
+      setAccessToken(null);
+      setLoggedInUser(null);
+      console.error("Profile error:", error);
+    }
+  };
   useEffect(() => {
     const controller = new AbortController();
 
@@ -172,7 +198,14 @@ const App = () => {
             OUR STORY
           </a>
         </nav>
-
+        <button
+          type="button"
+          onClick={() => setIsAuthOpen(true)}
+        >
+          {loggedInUser
+            ? `Hi, ${loggedInUser.first_name || loggedInUser.username}`
+            : "Login / Register"}
+        </button>
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
@@ -389,6 +422,12 @@ const App = () => {
           cart={cart}
           setCart={setCart}
           onClose={() => setIsCartOpen(false)}
+        />
+      )}
+      {isAuthOpen && (
+        <AuthPage
+          onClose={() => setIsAuthOpen(false)}
+          onLogin={handleLogin}
         />
       )}
     </div>
