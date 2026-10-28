@@ -1,4 +1,4 @@
-
+import OrderTimeline from "./OrderTimeline";
 import { useEffect, useState } from "react";
 import { ArrowLeft, LogOut, Package, UserRound } from "lucide-react";
 import "./ProfilePage.css";
@@ -187,7 +187,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                     {orderStatus?.replaceAll("_", " ")}
                   </span>
                 </div>
-
+                <OrderTimeline status={orderStatus} />
                 <div className="profile-order-items">
                   {order.items.map((item, index) => (
                     <p key={`${order.id}-${item.product}-${index}`}>

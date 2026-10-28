@@ -1,0 +1,156 @@
+
+.order-timeline {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid #e8e2da;
+  border-radius: 12px;
+  background: #fffdf9;
+}
+
+.timeline-heading {
+  margin: 0 0 20px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.timeline-steps {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-step {
+  display: flex;
+  gap: 14px;
+  min-height: 76px;
+}
+
+.timeline-marker-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.timeline-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border: 1px solid #cfc8bd;
+  border-radius: 50%;
+  color: #a39a8e;
+  background: #fff;
+}
+
+.timeline-step-reached .timeline-marker {
+  border-color: #64745a;
+  background: #64745a;
+  color: #fff;
+}
+
+.timeline-step-current .timeline-marker {
+  border: 2px solid #64745a;
+  background: #fff;
+}
+
+.timeline-current-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64745a;
+}
+
+.timeline-connector {
+  width: 2px;
+  flex: 1;
+  min-height: 32px;
+  background: #e1dbd1;
+}
+
+.timeline-step-reached .timeline-connector {
+  background: #64745a;
+}
+
+.timeline-step-content {
+  padding: 3px 0 20px;
+}
+
+.timeline-step-label {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #777168;
+}
+
+.timeline-step-reached .timeline-step-label {
+  color: #343b30;
+}
+
+.timeline-step-current .timeline-step-label {
+  font-weight: 700;
+}
+
+.timeline-step-description {
+  margin: 5px 0 0;
+  color: #827b71;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.timeline-current-label {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: #eaf0e5;
+  color: #43563b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.order-timeline-cancelled {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff8f6;
+  border-color: #ead7d1;
+}
+
+.timeline-cancel-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f4e4df;
+  color: #994b3e;
+}
+
+.order-timeline-cancelled h3 {
+  margin: 2px 0 6px;
+  font-size: 0.95rem;
+  color: #994b3e;
+}
+
+.order-timeline-cancelled p,
+.timeline-unknown {
+  margin: 0;
+  color: #777168;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .order-timeline {
+    padding: 16px;
+  }
+
+  .timeline-step {
+    gap: 10px;
+  }
+}
