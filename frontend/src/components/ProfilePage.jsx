@@ -13,6 +13,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
   const [error, setError] = useState("");
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [expandedDeliveryOrders, setExpandedDeliveryOrders] = useState([]);
 
   // Load orders belonging to the logged-in user.
   useEffect(() => {
@@ -211,8 +212,99 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                     {orderStatus?.replaceAll("_", " ")}
                   </span>
                 </div>
-                <OrderTimeline status={orderStatus} />
-                
+                <OrderTimeline status={orderStatus} />     
+                <section className="delivery-details-card">
+                  <button
+                    type="button"
+                    className="delivery-details-toggle"
+                    aria-expanded={expandedDeliveryOrders.includes(order.id)}
+                    onClick={() => {
+                      setExpandedDeliveryOrders((previous) =>
+                        previous.includes(order.id)
+                          ? previous.filter((id) => id !== order.id)
+                          : [...previous, order.id]
+                      );
+                    }}
+                  >
+                    <span>Delivery Details</span>
+                    <span className="delivery-toggle-action">
+                      {expandedDeliveryOrders.includes(order.id)
+                        ? "Hide details −"
+                        : "View details +"}
+                    </span>
+                  </button>
+
+                  {expandedDeliveryOrders.includes(order.id) && (
+                    <div className="delivery-details-content">
+                      <div className="delivery-details-grid">
+                        <div>
+                          <span>Customer</span>
+                          <strong>{order.customer_name}</strong>
+                        </div>
+
+                        <div>
+                          <span>Phone</span>
+                          <strong>{order.phone_number}</strong>
+                        </div>
+
+                        <div>
+                          <span>Email</span>
+                          <strong>{order.email || "Not provided"}</strong>
+                        </div>
+
+                        <div className="delivery-address">
+                          <span>Delivery address</span>
+                          <strong>{order.delivery_address}</strong>
+                        </div>
+                      </div>
+
+                      <div className="shipment-details">
+                        <h4>Shipment Information</h4>
+
+                        <p>
+                          <span>Courier</span>
+                          <strong>{order.courier_name || "Not assigned yet"}</strong>
+                        </p>
+
+                        <p>
+                          <span>Tracking number</span>
+                          <strong>{order.tracking_number || "Not available yet"}</strong>
+                        </p>
+
+                        <p>
+                          <span>Shipped on</span>
+                          <strong>
+                            {order.shipped_at
+                              ? new Date(order.shipped_at).toLocaleString("en-IN")
+                              : "Not shipped yet"}
+                          </strong>
+                        </p>
+
+                        <p>
+                          <span>Delivered on</span>
+                          <strong>
+                            {order.delivered_at
+                              ? new Date(order.delivered_at).toLocaleString("en-IN")
+                              : "Not delivered yet"}
+                          </strong>
+                        </p>
+
+                        {order.tracking_url && (
+                          <a
+                            href={order.tracking_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shipment-tracking-link"
+                          >
+                            Track shipment →
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+
                 <div className="profile-order-items">
                   {order.items.map((item, index) => (
                     <button

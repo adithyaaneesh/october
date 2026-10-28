@@ -30,6 +30,31 @@ class Order(models.Model):
         default="pending",
     )
 
+        # Shipment and delivery tracking details
+    courier_name = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    tracking_number = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    tracking_url = models.URLField(
+        blank=True,
+    )
+
+    shipped_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    delivered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    
     total_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,

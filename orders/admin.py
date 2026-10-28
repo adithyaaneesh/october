@@ -3,7 +3,7 @@ from django.contrib import admin, messages
 from django.db import transaction
 from .services import cancel_order, OrderCancellationError
 from .models import Order, OrderItem
-
+from django.utils import timezone
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
@@ -40,10 +40,11 @@ class OrderAdmin(admin.ModelAdmin):
         "phone_number",
         "email",
         "status",
+        "courier_name",
+        "tracking_number",
         "total_amount",
         "created_at",
     )
-
     list_filter = ("status", "created_at")
 
     search_fields = (
@@ -63,7 +64,39 @@ class OrderAdmin(admin.ModelAdmin):
         "total_amount",
         "created_at",
         "updated_at",
+        "shipped_at",
+        "delivered_at",
         "status",
+    )
+    fieldsets = (
+        (
+            "Customer and Order",
+            {
+                "fields": (
+                    "user",
+                    "customer_name",
+                    "phone_number",
+                    "email",
+                    "delivery_address",
+                    "status",
+                    "total_amount",
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+        (
+            "Shipment and Delivery",
+            {
+                "fields": (
+                    "courier_name",
+                    "tracking_number",
+                    "tracking_url",
+                    "shipped_at",
+                    "delivered_at",
+                )
+            },
+        ),
     )
 
     inlines = [OrderItemInline]
@@ -101,7 +134,18 @@ class OrderAdmin(admin.ModelAdmin):
                     continue
 
                 order.status = new_status
-                order.save(update_fields=["status", "updated_at"])
+
+                update_fields = ["status", "updated_at"]
+
+                if new_status == "shipped" and order.shipped_at is None:
+                    order.shipped_at = timezone.now()
+                    update_fields.append("shipped_at")
+
+                if new_status == "completed" and order.delivered_at is None:
+                    order.delivered_at = timezone.now()
+                    update_fields.append("delivered_at")
+
+                order.save(update_fields=update_fields)
                 updated += 1
 
         self.message_user(
@@ -126,10 +170,7 @@ class OrderAdmin(admin.ModelAdmin):
     def mark_completed(self, request, queryset):
         self.update_status(request, queryset, "completed")
 
-    @admin.action(
-        description="Cancel eligible orders and restore product stock"
-    )
-    
+  
     @admin.action(
         description="Cancel eligible orders and restore product stock"
     )

@@ -177,6 +177,12 @@ class OrderOutputSerializer(serializers.ModelSerializer):
             "delivery_address",
             "status",
             "total_amount",
+            "courier_name",
+            "tracking_number",
+            "tracking_url",
+            "shipped_at",
+            "delivered_at",
             "items",
             "created_at",
+            "updated_at",
         ]
