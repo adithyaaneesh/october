@@ -2,6 +2,7 @@ import OrderTimeline from "./OrderTimeline";
 import { useEffect, useState } from "react";
 import { ArrowLeft, LogOut, Package, UserRound } from "lucide-react";
 import "./ProfilePage.css";
+import { authenticatedFetch } from "../utils/authFetch";
 
 
 const API_URL = "http://127.0.0.1:8000";
@@ -19,12 +20,25 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
 
     const loadOrders = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/orders/my/`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
+        const response = await authenticatedFetch(
+          `${API_URL}/api/orders/my/`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
           },
-          signal: controller.signal,
-        });
+          {
+            onTokensUpdated: (newToken) => {
+              // The helper also saves this token to localStorage.
+              // App state will be synchronized in our next step.
+              console.log("Access token refreshed successfully.");
+            },
+            onSessionExpired: () => {
+              setError("Your session has expired. Please log in again.");
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error(
@@ -64,13 +78,21 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
     setCancellingOrderId(orderId);
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_URL}/api/orders/${orderId}/cancel/`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+          },
+        },
+        {
+          onTokensUpdated: () => {
+            console.log("Access token refreshed successfully.");
+          },
+          onSessionExpired: () => {
+            setError("Your session has expired. Please log in again.");
           },
         }
       );

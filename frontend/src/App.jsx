@@ -21,6 +21,24 @@ const App = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cart, setCart] = useState([]);
 
+  useEffect(() => {
+    const handleTokenUpdate = (event) => {
+      setAccessToken(event.detail.accessToken);
+    };
+
+    window.addEventListener(
+      "october:access-token-updated",
+      handleTokenUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "october:access-token-updated",
+        handleTokenUpdate
+      );
+    };
+  }, []);
+
   // Restore login session after refresh.
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +47,7 @@ const App = () => {
       const savedAccessToken = localStorage.getItem("october_access_token");
       const savedRefreshToken = localStorage.getItem("october_refresh_token");
 
-      if (!savedAccessToken) {
+      if (!savedAccessToken && !savedRefreshToken) {
         setAccessToken(null);
         setLoggedInUser(null);
         return;
@@ -37,12 +55,53 @@ const App = () => {
 
       try {
         let token = savedAccessToken;
+        let response = null;
 
-        let response = await fetch(`${API_URL}/api/accounts/profile/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // Check the profile only if an access token exists.
+        if (token) {
+          response = await fetch(`${API_URL}/api/accounts/profile/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
+        // Refresh if the access token is missing or has expired.
+        if ((!response || response.status === 401) && savedRefreshToken) {
+          const refreshResponse = await fetch(
+            `${API_URL}/api/accounts/token/refresh/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ refresh: savedRefreshToken }),
+            }
+          );
+
+          if (!refreshResponse.ok) {
+            throw new Error("Your session could not be renewed.");
+          }
+
+          const refreshData = await refreshResponse.json();
+          token = refreshData.access;
+
+          localStorage.setItem("october_access_token", token);
+
+          if (refreshData.refresh) {
+            localStorage.setItem("october_refresh_token", refreshData.refresh);
+          }
+
+          response = await fetch(`${API_URL}/api/accounts/profile/`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
+        if (!response || !response.ok) {
+          throw new Error("Your session could not be restored.");
+        }
 
         if (response.status === 401 && savedRefreshToken) {
           const refreshResponse = await fetch(

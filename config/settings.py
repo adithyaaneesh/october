@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -160,6 +161,22 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+}
+
+
+# JWT authentication settings for OCTOBER
+SIMPLE_JWT = {
+    # Access tokens expire after 15 minutes.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+
+    # Refresh tokens remain valid for 30 days.
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+
+    # Issue a new refresh token when refreshing.
+    "ROTATE_REFRESH_TOKENS": True,
+
+    # Do not blacklist rotated tokens unless the blacklist app is configured.
+    "BLACKLIST_AFTER_ROTATION": False,
 }
 
 # Uploaded product images
