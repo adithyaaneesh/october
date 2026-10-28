@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, LogOut, Package, UserRound } from "lucide-react";
 import "./ProfilePage.css";
 
+
 const API_URL = "http://127.0.0.1:8000";
 
 const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
@@ -10,6 +11,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Load orders belonging to the logged-in user.
   useEffect(() => {
@@ -188,15 +190,41 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                   </span>
                 </div>
                 <OrderTimeline status={orderStatus} />
+                
                 <div className="profile-order-items">
                   {order.items.map((item, index) => (
-                    <p key={`${order.id}-${item.product}-${index}`}>
-                      {item.product_name} × {item.quantity}
-                      <span>₹{Number(item.subtotal).toFixed(2)}</span>
-                    </p>
+                    <button
+                      type="button"
+                      className="profile-product-item"
+                      key={`${order.id}-${item.product}-${index}`}
+                      onClick={() => setSelectedProduct(item)}
+                      aria-label={`View details for ${item.product_name}`}
+                    >
+                      {item.product_image ? (
+                        <img
+                          className="profile-product-image"
+                          src={item.product_image}
+                          alt={item.product_name}
+                        />
+                      ) : (
+                        <div className="profile-product-image profile-product-placeholder">
+                          No image
+                        </div>
+                      )}
+                      <div className="profile-product-info">
+                        <strong>{item.product_name}</strong>
+                        <span>Size: {item.product_size || "Not specified"}</span>
+                        <span>Condition: {item.product_condition || "Not specified"}</span>
+                        <span>Quantity: {item.quantity}</span>
+                      </div>
+
+                      <div className="profile-product-price">
+                        <strong>₹{Number(item.price_at_purchase).toFixed(2)}</strong>
+                        <span>Subtotal: ₹{Number(item.subtotal).toFixed(2)}</span>
+                      </div>
+                    </button>
                   ))}
                 </div>
-
                 <div className="profile-order-total">
                   <span>Order total</span>
                   <strong>
@@ -230,6 +258,78 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
       <button className="profile-logout" onClick={onLogout}>
         <LogOut size={17} /> Log out
       </button>
+      
+      {selectedProduct && (
+        <div
+          className="product-detail-overlay"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <section
+            className="product-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-detail-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="product-detail-close"
+              onClick={() => setSelectedProduct(null)}
+              aria-label="Close product details"
+            >
+              ×
+            </button>
+
+            {selectedProduct.product_image ? (
+              <img
+                className="product-detail-image"
+                src={selectedProduct.product_image}
+                alt={selectedProduct.product_name}
+              />
+            ) : (
+              <div className="product-detail-image product-detail-placeholder">
+                No image available
+              </div>
+            )}
+
+            <div className="product-detail-content">
+              <p className="profile-eyebrow">OCTOBER · THRIFT AND CREATE</p>
+              <h2 id="product-detail-title">
+                {selectedProduct.product_name}
+              </h2>
+
+              <p className="product-detail-price">
+                ₹{Number(selectedProduct.price_at_purchase).toFixed(2)}
+              </p>
+
+              <p>
+                {selectedProduct.product_description ||
+                  "No description available."}
+              </p>
+
+              <dl className="product-detail-specs">
+                <div>
+                  <dt>Category</dt>
+                  <dd>{selectedProduct.product_category || "Not specified"}</dd>
+                </div>
+                <div>
+                  <dt>Size</dt>
+                  <dd>{selectedProduct.product_size || "Not specified"}</dd>
+                </div>
+                <div>
+                  <dt>Condition</dt>
+                  <dd>{selectedProduct.product_condition || "Not specified"}</dd>
+                </div>
+                <div>
+                  <dt>Quantity ordered</dt>
+                  <dd>{selectedProduct.quantity}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        </div>
+      )}
+
     </main>
   );
 };

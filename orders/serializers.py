@@ -110,21 +110,58 @@ class OrderItemOutputSerializer(serializers.ModelSerializer):
         source="product.name",
         read_only=True,
     )
+    product_description = serializers.CharField(
+        source="product.description",
+        read_only=True,
+    )
+    product_category = serializers.CharField(
+        source="product.category",
+        read_only=True,
+    )
+    product_size = serializers.CharField(
+        source="product.size",
+        read_only=True,
+    )
+    product_condition = serializers.CharField(
+        source="product.condition",
+        read_only=True,
+    )
+    product_image = serializers.SerializerMethodField()
+
     subtotal = serializers.DecimalField(
         max_digits=12,
         decimal_places=2,
         read_only=True,
     )
 
+    def get_product_image(self, obj):
+        request = self.context.get("request")
+
+        if not obj.product.image:
+            return None
+
+        image_url = obj.product.image.url
+
+        if request is not None:
+            return request.build_absolute_uri(image_url)
+
+        return image_url
+
     class Meta:
         model = OrderItem
         fields = [
             "product",
             "product_name",
+            "product_description",
+            "product_category",
+            "product_size",
+            "product_condition",
+            "product_image",
             "quantity",
             "price_at_purchase",
             "subtotal",
         ]
+
 
 
 class OrderOutputSerializer(serializers.ModelSerializer):
