@@ -1,6 +1,7 @@
 
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, ShoppingBag, X, Heart } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Header = ({
   loggedInUser,
@@ -16,13 +17,22 @@ const Header = ({
     0
   );
 
+  const handleWishlistClick = () => {
+    setMenuOpen(false);
+  };
+
   return (
     <header className="site-header">
-      <a className="brand" href="#home" aria-label="October home">
+      <Link
+        className="brand"
+        to="/"
+        aria-label="October home"
+        onClick={handleWishlistClick}
+      >
         <span className="brand-name">OCTOBER</span>
         <span className="brand-divider" />
         <span className="brand-subtitle">THRIFT AND CREATE</span>
-      </a>
+      </Link>
 
       <button
         className="mobile-menu"
@@ -33,15 +43,20 @@ const Header = ({
       </button>
 
       <nav className={menuOpen ? "navigation open" : "navigation"}>
-        <a href="#thrift" onClick={() => setMenuOpen(false)}>
+        <Link to="/#thrift" onClick={handleWishlistClick}>
           THRIFT
-        </a>
-        <a href="#create" onClick={() => setMenuOpen(false)}>
+        </Link>
+        <Link to="/#create" onClick={handleWishlistClick}>
           CREATE
-        </a>
-        <a href="#story" onClick={() => setMenuOpen(false)}>
+        </Link>
+        <Link to="/#story" onClick={handleWishlistClick}>
           OUR STORY
-        </a>
+        </Link>
+
+        <Link to="/wishlist" onClick={handleWishlistClick}>
+          <Heart size={16} />
+          WISHLIST
+        </Link>
       </nav>
 
       <button

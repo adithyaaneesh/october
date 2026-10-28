@@ -11,6 +11,7 @@ import AuthPage from "./components/AuthPage";
 import HomePage from "./pages/HomePage";
 import ProfileRoute from "./pages/ProfileRoute";
 import NotFoundPage from "./pages/NotFoundPage";
+import WishlistPage from "./pages/WishlistPage";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -253,10 +254,19 @@ const App = () => {
         />
 
         <Routes>
-          <Route
-            path="/"
-            element={<HomePage onAddToCart={addToCart} />}
-          />
+          
+        <Route
+          path="/"
+          element={
+            <HomePage
+              onAddToCart={addToCart}
+              loggedInUser={loggedInUser}
+              accessToken={accessToken}
+              onOpenAuth={() => setIsAuthOpen(true)}
+            />
+          }
+        />
+
 
           <Route
             path="/profile"
@@ -274,6 +284,17 @@ const App = () => {
               ) : (
                 <Navigate to="/" replace />
               )
+            }
+          />
+          <Route
+            path="/wishlist"
+            element={
+              <WishlistPage
+                user={loggedInUser}
+                accessToken={accessToken}
+                onAddToCart={addToCart}
+                onOpenAuth={() => setIsAuthOpen(true)}
+              />
             }
           />
 
