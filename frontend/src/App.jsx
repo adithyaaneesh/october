@@ -1,6 +1,11 @@
 
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import "./App.css";
 
 import Header from "./components/Header";
@@ -22,6 +27,7 @@ const App = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cart, setCart] = useState([]);
 
+  // Synchronize access-token updates across the application.
   useEffect(() => {
     const handleTokenUpdate = (event) => {
       setAccessToken(event.detail.accessToken);
@@ -40,13 +46,48 @@ const App = () => {
     };
   }, []);
 
-  // Restore login session after refresh.
+  // Synchronize profile changes across the application.
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      const updatedUser = event.detail;
+
+      if (!updatedUser) return;
+
+      setLoggedInUser((previousUser) => {
+        if (!previousUser) return previousUser;
+
+        return {
+          ...previousUser,
+          ...updatedUser,
+        };
+      });
+    };
+
+    window.addEventListener(
+      "october:profile-updated",
+      handleProfileUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "october:profile-updated",
+        handleProfileUpdate
+      );
+    };
+  }, []);
+
+  // Restore the login session after a browser refresh.
   useEffect(() => {
     let cancelled = false;
 
     const restoreSession = async () => {
-      const savedAccessToken = localStorage.getItem("october_access_token");
-      const savedRefreshToken = localStorage.getItem("october_refresh_token");
+      const savedAccessToken = localStorage.getItem(
+        "october_access_token"
+      );
+
+      const savedRefreshToken = localStorage.getItem(
+        "october_refresh_token"
+      );
 
       if (!savedAccessToken && !savedRefreshToken) {
         setAccessToken(null);
@@ -58,17 +99,23 @@ const App = () => {
         let token = savedAccessToken;
         let response = null;
 
-        // Check the profile only if an access token exists.
+        // Check the profile using the saved access token.
         if (token) {
-          response = await fetch(`${API_URL}/api/accounts/profile/`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          response = await fetch(
+            `${API_URL}/api/accounts/profile/`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
         }
 
-        // Refresh if the access token is missing or has expired.
-        if ((!response || response.status === 401) && savedRefreshToken) {
+        // Refresh the access token if it is missing or expired.
+        if (
+          (!response || response.status === 401) &&
+          savedRefreshToken
+        ) {
           const refreshResponse = await fetch(
             `${API_URL}/api/accounts/token/refresh/`,
             {
@@ -76,64 +123,47 @@ const App = () => {
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ refresh: savedRefreshToken }),
+              body: JSON.stringify({
+                refresh: savedRefreshToken,
+              }),
             }
           );
 
           if (!refreshResponse.ok) {
-            throw new Error("Your session could not be renewed.");
+            throw new Error(
+              "Your session could not be renewed."
+            );
           }
 
           const refreshData = await refreshResponse.json();
           token = refreshData.access;
 
-          localStorage.setItem("october_access_token", token);
+          localStorage.setItem(
+            "october_access_token",
+            token
+          );
 
           if (refreshData.refresh) {
-            localStorage.setItem("october_refresh_token", refreshData.refresh);
+            localStorage.setItem(
+              "october_refresh_token",
+              refreshData.refresh
+            );
           }
 
-          response = await fetch(`${API_URL}/api/accounts/profile/`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          response = await fetch(
+            `${API_URL}/api/accounts/profile/`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
         }
 
         if (!response || !response.ok) {
-          throw new Error("Your session could not be restored.");
-        }
-
-        if (response.status === 401 && savedRefreshToken) {
-          const refreshResponse = await fetch(
-            `${API_URL}/api/accounts/token/refresh/`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ refresh: savedRefreshToken }),
-            }
+          throw new Error(
+            "Your session could not be restored."
           );
-
-          if (!refreshResponse.ok) {
-            throw new Error("Your session has expired. Please log in again.");
-          }
-
-          const refreshData = await refreshResponse.json();
-          token = refreshData.access;
-
-          localStorage.setItem("october_access_token", token);
-
-          response = await fetch(`${API_URL}/api/accounts/profile/`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-        }
-
-        if (!response.ok) {
-          throw new Error("Your session has expired. Please log in again.");
         }
 
         const user = await response.json();
@@ -144,7 +174,10 @@ const App = () => {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("Session restoration failed:", error);
+          console.error(
+            "Session restoration failed:",
+            error
+          );
 
           localStorage.removeItem("october_access_token");
           localStorage.removeItem("october_refresh_token");
@@ -165,11 +198,14 @@ const App = () => {
   // Handle successful login.
   const handleLogin = async (token, refreshToken) => {
     try {
-      const response = await fetch(`${API_URL}/api/accounts/profile/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/api/accounts/profile/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Could not load your profile.");
@@ -180,7 +216,10 @@ const App = () => {
       localStorage.setItem("october_access_token", token);
 
       if (refreshToken) {
-        localStorage.setItem("october_refresh_token", refreshToken);
+        localStorage.setItem(
+          "october_refresh_token",
+          refreshToken
+        );
       }
 
       setAccessToken(token);
@@ -188,11 +227,15 @@ const App = () => {
       setIsAuthOpen(false);
     } catch (error) {
       console.error("Login error:", error);
-      alert(error.message || "Unable to log in. Please try again.");
+
+      alert(
+        error.message ||
+          "Unable to log in. Please try again."
+      );
     }
   };
 
-  // Clear the session on logout.
+  // Clear the local session on logout.
   const handleLogout = () => {
     localStorage.removeItem("october_access_token");
     localStorage.removeItem("october_refresh_token");
@@ -206,7 +249,10 @@ const App = () => {
 
   // Add an available product to the cart.
   const addToCart = (product) => {
-    if (!product.is_available || product.stock_quantity < 1) {
+    if (
+      !product.is_available ||
+      product.stock_quantity < 1
+    ) {
       return;
     }
 
@@ -216,23 +262,32 @@ const App = () => {
       );
 
       if (existing) {
-        if (existing.cartQuantity >= product.stock_quantity) {
+        if (
+          existing.cartQuantity >= product.stock_quantity
+        ) {
           return previousCart;
         }
 
         return previousCart.map((item) =>
           item.id === product.id
-            ? { ...item, cartQuantity: item.cartQuantity + 1 }
+            ? {
+                ...item,
+                cartQuantity: item.cartQuantity + 1,
+              }
             : item
         );
       }
 
-      return [...previousCart, { ...product, cartQuantity: 1 }];
+      return [
+        ...previousCart,
+        { ...product, cartQuantity: 1 },
+      ];
     });
 
     setIsCartOpen(true);
   };
 
+  // Open the profile page or request login.
   const handleOpenProfile = () => {
     if (loggedInUser && accessToken) {
       window.history.pushState({}, "", "/profile");
@@ -254,19 +309,17 @@ const App = () => {
         />
 
         <Routes>
-          
-        <Route
-          path="/"
-          element={
-            <HomePage
-              onAddToCart={addToCart}
-              loggedInUser={loggedInUser}
-              accessToken={accessToken}
-              onOpenAuth={() => setIsAuthOpen(true)}
-            />
-          }
-        />
-
+          <Route
+            path="/"
+            element={
+              <HomePage
+                onAddToCart={addToCart}
+                loggedInUser={loggedInUser}
+                accessToken={accessToken}
+                onOpenAuth={() => setIsAuthOpen(true)}
+              />
+            }
+          />
 
           <Route
             path="/profile"
@@ -277,7 +330,9 @@ const App = () => {
                   accessToken={accessToken}
                   onBack={() => {
                     window.history.pushState({}, "", "/");
-                    window.dispatchEvent(new PopStateEvent("popstate"));
+                    window.dispatchEvent(
+                      new PopStateEvent("popstate")
+                    );
                   }}
                   onLogout={handleLogout}
                 />
@@ -286,6 +341,7 @@ const App = () => {
               )
             }
           />
+
           <Route
             path="/wishlist"
             element={
@@ -298,7 +354,10 @@ const App = () => {
             }
           />
 
-          <Route path="*" element={<NotFoundPage />} />
+          <Route
+            path="*"
+            element={<NotFoundPage />}
+          />
         </Routes>
 
         <Footer />

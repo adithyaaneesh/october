@@ -1,7 +1,14 @@
 import OrderTimeline from "./OrderTimeline";
 import { useEffect, useState } from "react";
-import { ArrowLeft, LogOut, Package, UserRound } from "lucide-react";
-import "./ProfilePage.css";
+import {
+  ArrowLeft,
+  LogOut,
+  Package,
+  UserRound,
+  Pencil,
+  X,
+  Save,
+} from "lucide-react";import "./ProfilePage.css";
 import { authenticatedFetch } from "../utils/authFetch";
 
 
@@ -14,6 +21,19 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [expandedDeliveryOrders, setExpandedDeliveryOrders] = useState([]);
+
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  const [profileForm, setProfileForm] = useState({
+    username: user?.username || "",
+    first_name: user?.first_name || "",
+    last_name: user?.last_name || "",
+    email: user?.email || "",
+  });
 
   // Load orders belonging to the logged-in user.
   useEffect(() => {
@@ -123,6 +143,85 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
     }
   };
 
+    const handleProfileChange = (event) => {
+    setProfileForm((previous) => ({
+      ...previous,
+      [event.target.name]: event.target.value,
+    }));
+  };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+
+    setSavingProfile(true);
+    setProfileMessage("");
+    setProfileError("");
+
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/api/accounts/profile/`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: profileForm.username.trim(),
+            first_name: profileForm.first_name.trim(),
+            last_name: profileForm.last_name.trim(),
+            email: profileForm.email.trim(),
+          }),
+        },
+        {
+          onTokensUpdated: () => {
+            console.log("Access token refreshed successfully.");
+          },
+          onSessionExpired: () => {
+            setProfileError(
+              "Your session has expired. Please log in again."
+            );
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const messages = Object.entries(data)
+          .filter(([key]) => key !== "message")
+          .map(([key, value]) => {
+            const details = Array.isArray(value)
+              ? value.join(" ")
+              : typeof value === "string"
+                ? value
+                : JSON.stringify(value);
+
+            return `${key}: ${details}`;
+          });
+
+        throw new Error(
+          messages.join("\n") || "Unable to update your profile."
+        );
+      }
+
+      setProfileForm(data.user);
+      setProfileMessage("Your profile has been updated successfully.");
+      setIsEditingProfile(false);
+
+      // Notify App.jsx so the updated details appear throughout the app.
+      window.dispatchEvent(
+        new CustomEvent("october:profile-updated", {
+          detail: data.user,
+        })
+      );
+    } catch (err) {
+      setProfileError(err.message || "Unable to update your profile.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   return (
     <main className="profile-page">
       <button className="profile-back" onClick={onBack}>
@@ -135,37 +234,148 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
         <p>Manage your account and keep track of your orders.</p>
       </header>
 
+            
       <section className="profile-card">
-        <div className="profile-card-title">
-          <UserRound size={22} />
-          <h2>Personal information</h2>
+        <div className="profile-card-title profile-card-title-actions">
+          <div className="profile-card-heading">
+            <UserRound size={22} />
+            <h2>Personal information</h2>
+          </div>
+
+          {!isEditingProfile && (
+            <button
+              type="button"
+              className="edit-profile-button"
+              onClick={() => {
+                setProfileForm({
+                  username: user?.username || "",
+                  first_name: user?.first_name || "",
+                  last_name: user?.last_name || "",
+                  email: user?.email || "",
+                });
+                setProfileMessage("");
+                setProfileError("");
+                setIsEditingProfile(true);
+              }}
+            >
+              <Pencil size={15} /> Edit profile
+            </button>
+          )}
         </div>
 
-        <dl className="profile-details">
-          <div>
-            <dt>Username</dt>
-            <dd>{user.username}</dd>
-          </div>
+        {profileMessage && (
+          <p className="profile-success" role="status">
+            {profileMessage}
+          </p>
+        )}
 
-          <div>
-            <dt>Full name</dt>
-            <dd>
-              {[user.first_name, user.last_name].filter(Boolean).join(" ") ||
-                "Not provided"}
-            </dd>
-          </div>
+        {profileError && (
+          <p className="profile-error" role="alert">
+            {profileError}
+          </p>
+        )}
 
-          <div>
-            <dt>Email</dt>
-            <dd>{user.email || "Not provided"}</dd>
-          </div>
+        {isEditingProfile ? (
+          <form className="profile-edit-form" onSubmit={handleSaveProfile}>
+            <label>
+              Username
+              <input
+                name="username"
+                value={profileForm.username}
+                onChange={handleProfileChange}
+                required
+                autoComplete="username"
+              />
+            </label>
 
-          <div>
-            <dt>Account ID</dt>
-            <dd>{user.id}</dd>
-          </div>
-        </dl>
+            <label>
+              First name
+              <input
+                name="first_name"
+                value={profileForm.first_name}
+                onChange={handleProfileChange}
+                autoComplete="given-name"
+              />
+            </label>
+
+            <label>
+              Last name
+              <input
+                name="last_name"
+                value={profileForm.last_name}
+                onChange={handleProfileChange}
+                autoComplete="family-name"
+              />
+            </label>
+
+            <label>
+              Email
+              <input
+                type="email"
+                name="email"
+                value={profileForm.email}
+                onChange={handleProfileChange}
+                autoComplete="email"
+              />
+            </label>
+
+            <div className="profile-edit-actions">
+              <button
+                type="submit"
+                className="profile-save-button"
+                disabled={savingProfile}
+              >
+                <Save size={16} />
+                {savingProfile ? "Saving..." : "Save changes"}
+              </button>
+
+              <button
+                type="button"
+                className="profile-cancel-edit-button"
+                disabled={savingProfile}
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  setProfileError("");
+                  setProfileForm({
+                    username: user?.username || "",
+                    first_name: user?.first_name || "",
+                    last_name: user?.last_name || "",
+                    email: user?.email || "",
+                  });
+                }}
+              >
+                <X size={16} /> Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <dl className="profile-details">
+            <div>
+              <dt>Username</dt>
+              <dd>{user?.username}</dd>
+            </div>
+
+            <div>
+              <dt>Full name</dt>
+              <dd>
+                {[user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+                  "Not provided"}
+              </dd>
+            </div>
+
+            <div>
+              <dt>Email</dt>
+              <dd>{user?.email || "Not provided"}</dd>
+            </div>
+
+            <div>
+              <dt>Account ID</dt>
+              <dd>{user?.id}</dd>
+            </div>
+          </dl>
+        )}
       </section>
+
 
       <section className="profile-orders">
         <div className="profile-card-title">

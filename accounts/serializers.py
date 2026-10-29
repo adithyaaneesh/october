@@ -53,3 +53,47 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
+
+
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+        ]
+
+    def validate_username(self, value):
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError(
+                "Username cannot be empty."
+            )
+
+        existing_user = User.objects.filter(
+            username__iexact=value
+        ).exclude(pk=self.instance.pk)
+
+        if existing_user.exists():
+            raise serializers.ValidationError(
+                "This username is already taken."
+            )
+
+        return value
+
+    def validate_email(self, value):
+        value = value.strip()
+
+        if value and User.objects.filter(
+            email__iexact=value
+        ).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(
+                "An account with this email already exists."
+            )
+
+        return value

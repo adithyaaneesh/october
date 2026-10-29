@@ -497,3 +497,128 @@
     flex-direction: column;
   }
 }
+
+.profile-card-title-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.profile-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-card-heading h2 {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 23px;
+  font-weight: 400;
+}
+
+.edit-profile-button,
+.profile-save-button,
+.profile-cancel-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.edit-profile-button {
+  border: 1px solid #ded5c8;
+  background: #fffdf9;
+  color: #302820;
+}
+
+.edit-profile-button:hover {
+  background: #eee5d8;
+}
+
+.profile-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.profile-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #74695d;
+  font-size: 13px;
+}
+
+.profile-edit-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1px solid #ded5c8;
+  border-radius: 0;
+  background: #fffdf9;
+  color: #302820;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.profile-edit-form input:focus {
+  outline: 2px solid #64745a;
+  outline-offset: 1px;
+}
+
+.profile-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.profile-save-button {
+  border: 1px solid #302820;
+  background: #302820;
+  color: #fffdf9;
+}
+
+.profile-save-button:hover:not(:disabled) {
+  background: #43563b;
+}
+
+.profile-cancel-edit-button {
+  border: 1px solid #ded5c8;
+  background: transparent;
+  color: #302820;
+}
+
+.profile-save-button:disabled,
+.profile-cancel-edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-success {
+  padding: 10px 12px;
+  border: 1px solid #c9d5c2;
+  background: #f0f5ed;
+  color: #43563b;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .profile-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-edit-actions {
+    flex-direction: column;
+  }
+
+  .profile-edit-actions button {
+    width: 100%;
+  }
+}
