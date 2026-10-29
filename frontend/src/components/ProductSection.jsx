@@ -60,6 +60,7 @@ const emptyFilters = {
   size: "",
   min_price: "",
   max_price: "",
+  sort: "newest",
 };
 
 const money = (value) =>
@@ -449,6 +450,19 @@ const ProductSection = ({
                 value={filters.max_price}
                 onChange={handleFilterChange}
               />
+            </label>
+            <label className="filter-field">
+              <span>Sort By</span>
+              <select
+                name="sort"
+                value={filters.sort}
+                onChange={handleFilterChange}
+              >
+                <option value="newest">Newest Arrivals</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="name_asc">Name: A-Z</option>
+              </select>
             </label>
           </div>
 

@@ -97,8 +97,29 @@ class ProductListAPIView(generics.ListAPIView):
         if max_price is not None:
             queryset = queryset.filter(price__lte=max_price)
 
-        return queryset
+        
+        # 5. Sort the filtered products.
+        sort = self.request.query_params.get("sort", "").strip()
 
+        sort_options = {
+            "price_asc": "price",
+            "price_desc": "-price",
+            "newest": "-created_at",
+            "name_asc": "name",
+        }
+
+        if sort:
+            if sort not in sort_options:
+                raise ValidationError({
+                    "sort": (
+                        "Choose price_asc, price_desc, "
+                        "newest, or name_asc."
+                    )
+                })
+
+            queryset = queryset.order_by(sort_options[sort])
+
+        return queryset
 
 class WishlistAPIView(APIView):
     permission_classes = [IsAuthenticated]
