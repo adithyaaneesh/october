@@ -1,6 +1,9 @@
 
+from decimal import Decimal, InvalidOperation
+
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,10 +16,88 @@ class ProductListAPIView(generics.ListAPIView):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
-        return Product.objects.filter(
+        queryset = Product.objects.filter(
             is_available=True,
             stock_quantity__gt=0,
         )
+
+        # 1. Search by product name.
+        search = self.request.query_params.get("search", "").strip()
+
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+
+        # 2. Filter by category.
+        category = self.request.query_params.get("category", "").strip()
+
+        if category:
+            valid_categories = {
+                value for value, label in Product.CATEGORY_CHOICES
+            }
+
+            if category not in valid_categories:
+                raise ValidationError({
+                    "category": "Choose a valid category."
+                })
+
+            queryset = queryset.filter(category=category)
+
+        # 3. Filter by size.
+        size = self.request.query_params.get("size", "").strip()
+
+        if size:
+            valid_sizes = {
+                value for value, label in Product.SIZE_CHOICES
+            }
+
+            if size not in valid_sizes:
+                raise ValidationError({
+                    "size": "Choose a valid size."
+                })
+
+            queryset = queryset.filter(size=size)
+
+        # 4. Filter by minimum and maximum price.
+        min_value = self.request.query_params.get("min_price", "").strip()
+        max_value = self.request.query_params.get("max_price", "").strip()
+
+        min_price = None
+        max_price = None
+
+        for parameter, value in [
+            ("min_price", min_value),
+            ("max_price", max_value),
+        ]:
+            if value:
+                try:
+                    price = Decimal(value)
+
+                    if not price.is_finite() or price < 0:
+                        raise InvalidOperation
+
+                    if parameter == "min_price":
+                        min_price = price
+                    else:
+                        max_price = price
+
+                except InvalidOperation:
+                    raise ValidationError({
+                        parameter: "Enter a valid non-negative price."
+                    })
+
+        if min_price is not None and max_price is not None:
+            if min_price > max_price:
+                raise ValidationError({
+                    "price": "Minimum price cannot exceed maximum price."
+                })
+
+        if min_price is not None:
+            queryset = queryset.filter(price__gte=min_price)
+
+        if max_price is not None:
+            queryset = queryset.filter(price__lte=max_price)
+
+        return queryset
 
 
 class WishlistAPIView(APIView):

@@ -1,6 +1,12 @@
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Heart } from "lucide-react";
+import {
+  ArrowRight,
+  Heart,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { authenticatedFetch } from "../utils/authFetch";
 
 const API_URL = "http://127.0.0.1:8000";
@@ -35,6 +41,27 @@ const sampleProducts = [
   },
 ];
 
+const categories = [
+  { value: "tops", label: "Tops" },
+  { value: "shirts", label: "Shirts" },
+  { value: "trousers", label: "Trousers" },
+  { value: "dresses", label: "Dresses" },
+  { value: "jackets", label: "Jackets" },
+  { value: "skirts", label: "Skirts" },
+  { value: "accessories", label: "Accessories" },
+  { value: "other", label: "Other" },
+];
+
+const sizes = ["XS", "S", "M", "L", "XL", "XXL", "FREE"];
+
+const emptyFilters = {
+  search: "",
+  category: "",
+  size: "",
+  min_price: "",
+  max_price: "",
+};
+
 const money = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -54,28 +81,66 @@ const ProductSection = ({
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [wishlistError, setWishlistError] = useState("");
 
-  // Fetch available products from Django.
+  // Values currently entered in the search and filter controls.
+  const [filters, setFilters] = useState(emptyFilters);
+
+  // Filters are sent to Django when the customer applies them.
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [filterError, setFilterError] = useState("");
+
+  const hasActiveFilters = Object.values(appliedFilters).some(
+    (value) => value.trim() !== ""
+  );
+
+  // Fetch products from Django using the applied filters.
   useEffect(() => {
     const controller = new AbortController();
 
     const fetchProducts = async () => {
+      setLoading(true);
+      setFilterError("");
+
       try {
-        const response = await fetch(`${API_URL}/api/products/`, {
+        const params = new URLSearchParams();
+
+        Object.entries(appliedFilters).forEach(([key, value]) => {
+          if (value.trim() !== "") {
+            params.set(key, value.trim());
+          }
+        });
+
+        const queryString = params.toString();
+        const url = queryString
+          ? `${API_URL}/api/products/?${queryString}`
+          : `${API_URL}/api/products/`;
+
+        const response = await fetch(url, {
           signal: controller.signal,
         });
 
+        const data = await response.json().catch(() => []);
+
         if (!response.ok) {
-          throw new Error("Could not fetch products");
+          const message =
+            data && typeof data === "object" && !Array.isArray(data)
+              ? Object.values(data).flat().join(" ")
+              : "Could not fetch products.";
+
+          throw new Error(message || "Could not fetch products.");
         }
 
-        const data = await response.json();
-        const items = Array.isArray(data) ? data : data.results || [];
+        const items = Array.isArray(data)
+          ? data
+          : data.results || [];
 
         setProducts(items);
       } catch (error) {
         if (error.name !== "AbortError") {
           console.error("Product API error:", error);
           setProducts([]);
+          setFilterError(
+            error.message || "Unable to load products. Please try again."
+          );
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -87,9 +152,9 @@ const ProductSection = ({
     fetchProducts();
 
     return () => controller.abort();
-  }, []);
+  }, [appliedFilters]);
 
-  // Load the logged-in user's saved products.
+  // Load the logged-in customer's saved products.
   useEffect(() => {
     let cancelled = false;
 
@@ -107,7 +172,9 @@ const ProductSection = ({
           {},
           {
             onSessionExpired: () => {
-              setWishlistError("Your session has expired. Please log in again.");
+              setWishlistError(
+                "Your session has expired. Please log in again."
+              );
             },
           }
         );
@@ -123,7 +190,9 @@ const ProductSection = ({
         }
       } catch (error) {
         if (!cancelled) {
-          setWishlistError(error.message || "Could not load your wishlist.");
+          setWishlistError(
+            error.message || "Could not load your wishlist."
+          );
         }
       }
     };
@@ -143,7 +212,9 @@ const ProductSection = ({
     }
 
     if (!Number.isInteger(product.id)) {
-      setWishlistError("Preview products cannot be saved. Add real products in Django Admin.");
+      setWishlistError(
+        "Preview products cannot be saved. Add real products in Django Admin."
+      );
       return;
     }
 
@@ -163,7 +234,9 @@ const ProductSection = ({
             { method: "DELETE" },
             {
               onSessionExpired: () => {
-                setWishlistError("Your session has expired. Please log in again.");
+                setWishlistError(
+                  "Your session has expired. Please log in again."
+                );
               },
             }
           )
@@ -178,7 +251,9 @@ const ProductSection = ({
             },
             {
               onSessionExpired: () => {
-                setWishlistError("Your session has expired. Please log in again.");
+                setWishlistError(
+                  "Your session has expired. Please log in again."
+                );
               },
             }
           );
@@ -198,13 +273,83 @@ const ProductSection = ({
             : [...current, product.id]
       );
     } catch (error) {
-      setWishlistError(error.message || "Could not update your wishlist.");
+      setWishlistError(
+        error.message || "Could not update your wishlist."
+      );
     } finally {
       setWishlistLoading(false);
     }
   };
 
-  const displayProducts = products.length ? products : sampleProducts;
+  const handleFilterChange = (event) => {
+    const { name, value } = event.target;
+
+    setFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setFilterError("");
+  };
+
+  const handleApplyFilters = (event) => {
+    event.preventDefault();
+    setFilterError("");
+
+    const minPrice =
+      filters.min_price.trim() === ""
+        ? null
+        : Number(filters.min_price);
+
+    const maxPrice =
+      filters.max_price.trim() === ""
+        ? null
+        : Number(filters.max_price);
+
+    if (
+      minPrice !== null &&
+      (!Number.isFinite(minPrice) || minPrice < 0)
+    ) {
+      setFilterError("Enter a valid minimum price.");
+      return;
+    }
+
+    if (
+      maxPrice !== null &&
+      (!Number.isFinite(maxPrice) || maxPrice < 0)
+    ) {
+      setFilterError("Enter a valid maximum price.");
+      return;
+    }
+
+    if (
+      minPrice !== null &&
+      maxPrice !== null &&
+      minPrice > maxPrice
+    ) {
+      setFilterError(
+        "Minimum price cannot be greater than maximum price."
+      );
+      return;
+    }
+
+    setAppliedFilters({ ...filters });
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ ...emptyFilters });
+    setAppliedFilters({ ...emptyFilters });
+    setFilterError("");
+  };
+
+  // Preview products are shown only when no filters are active
+  // and the real inventory is empty.
+  const displayProducts =
+    products.length > 0
+      ? products
+      : !hasActiveFilters && !filterError
+        ? sampleProducts
+        : [];
 
   return (
     <section className="thrift-section" id="thrift">
@@ -221,16 +366,164 @@ const ProductSection = ({
       </div>
 
       <div className="product-area">
-        {loading && (
-          <p className="loading-message">Finding lovely pieces...</p>
-        )}
+        {/* Search and filter controls */}
+        <form
+          className="product-filters"
+          onSubmit={handleApplyFilters}
+        >
+          <div className="product-search">
+            <Search size={20} aria-hidden="true" />
 
-        {!loading && products.length === 0 && (
-          <p className="demo-notice">
-            Preview products are shown below. Add products in Django Admin
-            to display your real inventory.
+            <input
+              type="search"
+              name="search"
+              placeholder="Search by product name..."
+              value={filters.search}
+              onChange={handleFilterChange}
+              aria-label="Search products by name"
+            />
+          </div>
+
+          <div className="filter-heading">
+            <SlidersHorizontal size={18} />
+            <span>Find your perfect piece</span>
+          </div>
+
+          <div className="filter-controls">
+            <label className="filter-field">
+              <span>Category</span>
+              <select
+                name="category"
+                value={filters.category}
+                onChange={handleFilterChange}
+              >
+                <option value="">All categories</option>
+                {categories.map((category) => (
+                  <option
+                    key={category.value}
+                    value={category.value}
+                  >
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="filter-field">
+              <span>Size</span>
+              <select
+                name="size"
+                value={filters.size}
+                onChange={handleFilterChange}
+              >
+                <option value="">All sizes</option>
+                {sizes.map((size) => (
+                  <option key={size} value={size}>
+                    {size === "FREE" ? "Free Size" : size}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="filter-field">
+              <span>Minimum price (₹)</span>
+              <input
+                type="number"
+                name="min_price"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 300"
+                value={filters.min_price}
+                onChange={handleFilterChange}
+              />
+            </label>
+
+            <label className="filter-field">
+              <span>Maximum price (₹)</span>
+              <input
+                type="number"
+                name="max_price"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 1000"
+                value={filters.max_price}
+                onChange={handleFilterChange}
+              />
+            </label>
+          </div>
+
+          {filterError && (
+            <p className="filter-error" role="alert">
+              {filterError}
+            </p>
+          )}
+
+          <div className="filter-actions">
+            <button
+              type="submit"
+              className="apply-filters-button"
+            >
+              <Search size={16} />
+              Apply Filters
+            </button>
+
+            <button
+              type="button"
+              className="clear-filters-button"
+              onClick={handleClearFilters}
+              disabled={
+                !hasActiveFilters &&
+                Object.values(filters).every((value) => value === "")
+              }
+            >
+              <X size={16} />
+              Clear Filters
+            </button>
+          </div>
+        </form>
+
+        {loading && (
+          <p className="loading-message">
+            Finding lovely pieces...
           </p>
         )}
+
+        {filterError && (
+          <p className="filter-error" role="alert">
+            {filterError}
+          </p>
+        )}
+
+        {!loading &&
+          !filterError &&
+          products.length === 0 &&
+          !hasActiveFilters && (
+            <p className="demo-notice">
+              Preview products are shown below. Add products in Django
+              Admin to display your real inventory.
+            </p>
+          )}
+
+        {!loading &&
+          !filterError &&
+          products.length === 0 &&
+          hasActiveFilters && (
+            <div className="no-products-message">
+              <Search size={28} />
+              <h3>No pieces found</h3>
+              <p>
+                Try another name, category, size, or price range.
+              </p>
+              <button
+                type="button"
+                className="clear-filters-button"
+                onClick={handleClearFilters}
+              >
+                <X size={16} />
+                Clear Filters
+              </button>
+            </div>
+          )}
 
         {wishlistError && (
           <p className="wishlist-message" role="alert">
@@ -315,7 +608,8 @@ const ProductSection = ({
                   >
                     {!Number.isInteger(product.id)
                       ? "Add product in Admin"
-                      : product.is_available && product.stock_quantity > 0
+                      : product.is_available &&
+                          product.stock_quantity > 0
                         ? "Add to Bag"
                         : "Sold Out"}
                   </button>
