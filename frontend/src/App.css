@@ -1365,3 +1365,27 @@ button {
     width: 100%;
   }
 }
+/* OCTOBER - Inventory Stock Badges */
+
+.stock-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 7px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.stock-badge.low-stock {
+  background: #f4e5c8;
+  color: #80551d;
+}
+
+.stock-badge.out-of-stock {
+  background: #ce4134;
+  color: #ffffff;
+}

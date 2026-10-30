@@ -10,6 +10,7 @@ import {
 import { authenticatedFetch } from "../utils/authFetch";
 
 const API_URL = "http://127.0.0.1:8000";
+const LOW_STOCK_THRESHOLD = 10;
 
 const sampleProducts = [
   {
@@ -82,10 +83,7 @@ const ProductSection = ({
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [wishlistError, setWishlistError] = useState("");
 
-  // Values currently entered in the search and filter controls.
   const [filters, setFilters] = useState(emptyFilters);
-
-  // Filters are sent to Django when the customer applies them.
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
   const [filterError, setFilterError] = useState("");
 
@@ -93,7 +91,7 @@ const ProductSection = ({
     (value) => value.trim() !== ""
   );
 
-  // Fetch products from Django using the applied filters.
+  // Fetch products from Django.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -111,6 +109,7 @@ const ProductSection = ({
         });
 
         const queryString = params.toString();
+
         const url = queryString
           ? `${API_URL}/api/products/?${queryString}`
           : `${API_URL}/api/products/`;
@@ -155,7 +154,7 @@ const ProductSection = ({
     return () => controller.abort();
   }, [appliedFilters]);
 
-  // Load the logged-in customer's saved products.
+  // Load wishlist for logged-in customers.
   useEffect(() => {
     let cancelled = false;
 
@@ -205,7 +204,7 @@ const ProductSection = ({
     };
   }, [loggedInUser, accessToken]);
 
-  // Add or remove a product from the database wishlist.
+  // Add or remove products from wishlist.
   const toggleFavorite = async (product) => {
     if (!loggedInUser || !accessToken) {
       onOpenAuth();
@@ -248,7 +247,9 @@ const ProductSection = ({
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ product_id: product.id }),
+              body: JSON.stringify({
+                product_id: product.id,
+              }),
             },
             {
               onSessionExpired: () => {
@@ -261,6 +262,7 @@ const ProductSection = ({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+
         throw new Error(
           errorData.error || "Could not update your wishlist."
         );
@@ -282,6 +284,7 @@ const ProductSection = ({
     }
   };
 
+  // Handle filter input changes.
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
 
@@ -293,6 +296,7 @@ const ProductSection = ({
     setFilterError("");
   };
 
+  // Validate and apply filters.
   const handleApplyFilters = (event) => {
     event.preventDefault();
     setFilterError("");
@@ -337,14 +341,14 @@ const ProductSection = ({
     setAppliedFilters({ ...filters });
   };
 
+  // Clear all filters.
   const handleClearFilters = () => {
     setFilters({ ...emptyFilters });
     setAppliedFilters({ ...emptyFilters });
     setFilterError("");
   };
 
-  // Preview products are shown only when no filters are active
-  // and the real inventory is empty.
+  // Show preview products only when real inventory is empty.
   const displayProducts =
     products.length > 0
       ? products
@@ -356,11 +360,14 @@ const ProductSection = ({
     <section className="thrift-section" id="thrift">
       <div className="section-intro">
         <p className="eyebrow">THE THRIFT EDIT</p>
+
         <h2>Good clothes, a second life.</h2>
+
         <p>
           Carefully curated pre-loved pieces that are full of character,
           ready for their next story.
         </p>
+
         <span className="text-link">
           OUR COLLECTION <ArrowRight size={16} />
         </span>
@@ -393,12 +400,14 @@ const ProductSection = ({
           <div className="filter-controls">
             <label className="filter-field">
               <span>Category</span>
+
               <select
                 name="category"
                 value={filters.category}
                 onChange={handleFilterChange}
               >
                 <option value="">All categories</option>
+
                 {categories.map((category) => (
                   <option
                     key={category.value}
@@ -412,12 +421,14 @@ const ProductSection = ({
 
             <label className="filter-field">
               <span>Size</span>
+
               <select
                 name="size"
                 value={filters.size}
                 onChange={handleFilterChange}
               >
                 <option value="">All sizes</option>
+
                 {sizes.map((size) => (
                   <option key={size} value={size}>
                     {size === "FREE" ? "Free Size" : size}
@@ -428,6 +439,7 @@ const ProductSection = ({
 
             <label className="filter-field">
               <span>Minimum price (₹)</span>
+
               <input
                 type="number"
                 name="min_price"
@@ -441,6 +453,7 @@ const ProductSection = ({
 
             <label className="filter-field">
               <span>Maximum price (₹)</span>
+
               <input
                 type="number"
                 name="max_price"
@@ -451,8 +464,10 @@ const ProductSection = ({
                 onChange={handleFilterChange}
               />
             </label>
+
             <label className="filter-field">
               <span>Sort By</span>
+
               <select
                 name="sort"
                 value={filters.sort}
@@ -524,10 +539,13 @@ const ProductSection = ({
           hasActiveFilters && (
             <div className="no-products-message">
               <Search size={28} />
+
               <h3>No pieces found</h3>
+
               <p>
                 Try another name, category, size, or price range.
               </p>
+
               <button
                 type="button"
                 className="clear-filters-button"
@@ -548,6 +566,20 @@ const ProductSection = ({
         <div className="product-grid">
           {displayProducts.map((product, index) => {
             const isFavorite = favorites.includes(product.id);
+
+            const hasRealStock =
+              Number.isInteger(product.id) &&
+              Number.isFinite(Number(product.stock_quantity));
+
+            const stockQuantity = Number(product.stock_quantity);
+
+            const isOutOfStock =
+              hasRealStock && stockQuantity === 0;
+
+            const isLowStock =
+              hasRealStock &&
+              stockQuantity > 0 &&
+              stockQuantity < LOW_STOCK_THRESHOLD;
 
             return (
               <article className="product-card" key={product.id}>
@@ -592,6 +624,23 @@ const ProductSection = ({
                       fill={isFavorite ? "currentColor" : "none"}
                     />
                   </button>
+
+                  {/* Stock availability indicator */}
+                  {hasRealStock && (
+                    <>
+                      {isOutOfStock && (
+                        <div className="stock-badge out-of-stock">
+                          Out of Stock
+                        </div>
+                      )}
+
+                      {isLowStock && (
+                        <div className="stock-badge low-stock">
+                          Only {stockQuantity} left
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="product-info">
@@ -617,13 +666,13 @@ const ProductSection = ({
                     disabled={
                       !Number.isInteger(product.id) ||
                       product.is_available !== true ||
-                      product.stock_quantity < 1
+                      stockQuantity < 1
                     }
                   >
                     {!Number.isInteger(product.id)
                       ? "Add product in Admin"
                       : product.is_available &&
-                          product.stock_quantity > 0
+                          stockQuantity > 0
                         ? "Add to Bag"
                         : "Sold Out"}
                   </button>

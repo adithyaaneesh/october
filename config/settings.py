@@ -182,3 +182,6 @@ SIMPLE_JWT = {
 # Uploaded product images
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Inventory settings
+LOW_STOCK_THRESHOLD = 10

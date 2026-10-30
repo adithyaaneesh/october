@@ -2,6 +2,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -16,10 +17,8 @@ class ProductListAPIView(generics.ListAPIView):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
-        queryset = Product.objects.filter(
-            is_available=True,
-            stock_quantity__gt=0,
-        )
+        # Include available and out-of-stock products.
+        queryset = Product.objects.all()
 
         # 1. Search by product name.
         search = self.request.query_params.get("search", "").strip()
@@ -58,8 +57,13 @@ class ProductListAPIView(generics.ListAPIView):
             queryset = queryset.filter(size=size)
 
         # 4. Filter by minimum and maximum price.
-        min_value = self.request.query_params.get("min_price", "").strip()
-        max_value = self.request.query_params.get("max_price", "").strip()
+        min_value = self.request.query_params.get(
+            "min_price", ""
+        ).strip()
+
+        max_value = self.request.query_params.get(
+            "max_price", ""
+        ).strip()
 
         min_price = None
         max_price = None
@@ -97,7 +101,6 @@ class ProductListAPIView(generics.ListAPIView):
         if max_price is not None:
             queryset = queryset.filter(price__lte=max_price)
 
-        
         # 5. Sort the filtered products.
         sort = self.request.query_params.get("sort", "").strip()
 
@@ -120,6 +123,7 @@ class ProductListAPIView(generics.ListAPIView):
             queryset = queryset.order_by(sort_options[sort])
 
         return queryset
+
 
 class WishlistAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -146,6 +150,7 @@ class WishlistAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Prevent adding unavailable products to wishlist.
         product = get_object_or_404(
             Product,
             pk=product_id,
@@ -185,4 +190,6 @@ class WishlistItemDeleteAPIView(APIView):
 
         wishlist_item.delete()
 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
