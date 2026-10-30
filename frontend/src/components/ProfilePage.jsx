@@ -1,3 +1,4 @@
+
 import OrderTimeline from "./OrderTimeline";
 import { useEffect, useState } from "react";
 import {
@@ -8,9 +9,12 @@ import {
   Pencil,
   X,
   Save,
-} from "lucide-react";import "./ProfilePage.css";
+  KeyRound,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import "./ProfilePage.css";
 import { authenticatedFetch } from "../utils/authFetch";
-
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -22,7 +26,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [expandedDeliveryOrders, setExpandedDeliveryOrders] = useState([]);
 
-
+  // Edit profile state.
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
@@ -33,6 +37,24 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
     email: user?.email || "",
+  });
+
+  // Change password state.
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
   });
 
   // Load orders belonging to the logged-in user.
@@ -50,9 +72,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
             signal: controller.signal,
           },
           {
-            onTokensUpdated: (newToken) => {
-              // The helper also saves this token to localStorage.
-              // App state will be synchronized in our next step.
+            onTokensUpdated: () => {
               console.log("Access token refreshed successfully.");
             },
             onSessionExpired: () => {
@@ -88,68 +108,15 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
     return () => controller.abort();
   }, [accessToken]);
 
-  // Cancel an order.
-  const handleCancelOrder = async (orderId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this order?"
-    );
-
-    if (!confirmed) return;
-
-    setCancellingOrderId(orderId);
-
-    try {
-      const response = await authenticatedFetch(
-        `${API_URL}/api/orders/${orderId}/cancel/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-        {
-          onTokensUpdated: () => {
-            console.log("Access token refreshed successfully.");
-          },
-          onSessionExpired: () => {
-            setError("Your session has expired. Please log in again.");
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.error || "Unable to cancel this order.");
-        return;
-      }
-
-      // Update the order status immediately without reloading the page.
-      setOrders((previousOrders) =>
-        previousOrders.map((order) =>
-          order.id === orderId
-            ? { ...order, status: "cancelled" }
-            : order
-        )
-      );
-
-      alert("Your order has been cancelled successfully.");
-    } catch (err) {
-      console.error("Cancellation error:", err);
-      alert("Unable to connect to the server. Please try again.");
-    } finally {
-      setCancellingOrderId(null);
-    }
-  };
-
-    const handleProfileChange = (event) => {
+  // Handle profile form changes.
+  const handleProfileChange = (event) => {
     setProfileForm((previous) => ({
       ...previous,
       [event.target.name]: event.target.value,
     }));
   };
 
+  // Save profile details.
   const handleSaveProfile = async (event) => {
     event.preventDefault();
 
@@ -209,7 +176,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
       setProfileMessage("Your profile has been updated successfully.");
       setIsEditingProfile(false);
 
-      // Notify App.jsx so the updated details appear throughout the app.
+      // Synchronize the updated user with App.jsx.
       window.dispatchEvent(
         new CustomEvent("october:profile-updated", {
           detail: data.user,
@@ -219,6 +186,143 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
       setProfileError(err.message || "Unable to update your profile.");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // Handle password form changes.
+  const handlePasswordChange = (event) => {
+    setPasswordForm((previous) => ({
+      ...previous,
+      [event.target.name]: event.target.value,
+    }));
+  };
+
+  // Submit a password change request.
+  const handleSavePassword = async (event) => {
+    event.preventDefault();
+
+    setSavingPassword(true);
+    setPasswordMessage("");
+    setPasswordError("");
+
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/api/accounts/change-password/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(passwordForm),
+        },
+        {
+          onTokensUpdated: () => {
+            console.log("Access token refreshed successfully.");
+          },
+          onSessionExpired: () => {
+            setPasswordError(
+              "Your session has expired. Please log in again."
+            );
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const messages = Object.entries(data)
+          .map(([key, value]) => {
+            const details = Array.isArray(value)
+              ? value.join(" ")
+              : typeof value === "string"
+                ? value
+                : JSON.stringify(value);
+
+            return `${key}: ${details}`;
+          });
+
+        throw new Error(
+          messages.join("\n") || "Unable to change your password."
+        );
+      }
+
+      setPasswordForm({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+
+      setShowPasswords({
+        current: false,
+        new: false,
+        confirm: false,
+      });
+
+      setIsChangingPassword(false);
+      setPasswordMessage(
+        "Password changed successfully. For security, log out and sign in again."
+      );
+    } catch (err) {
+      setPasswordError(
+        err.message || "Unable to change your password."
+      );
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  // Cancel an order.
+  const handleCancelOrder = async (orderId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this order?"
+    );
+
+    if (!confirmed) return;
+
+    setCancellingOrderId(orderId);
+
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/api/orders/${orderId}/cancel/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+        {
+          onTokensUpdated: () => {
+            console.log("Access token refreshed successfully.");
+          },
+          onSessionExpired: () => {
+            setError("Your session has expired. Please log in again.");
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Unable to cancel this order.");
+        return;
+      }
+
+      setOrders((previousOrders) =>
+        previousOrders.map((order) =>
+          order.id === orderId
+            ? { ...order, status: "cancelled" }
+            : order
+        )
+      );
+
+      alert("Your order has been cancelled successfully.");
+    } catch (err) {
+      console.error("Cancellation error:", err);
+      alert("Unable to connect to the server. Please try again.");
+    } finally {
+      setCancellingOrderId(null);
     }
   };
 
@@ -234,7 +338,7 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
         <p>Manage your account and keep track of your orders.</p>
       </header>
 
-            
+      {/* Personal information and profile editing. */}
       <section className="profile-card">
         <div className="profile-card-title profile-card-title-actions">
           <div className="profile-card-heading">
@@ -358,8 +462,9 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
             <div>
               <dt>Full name</dt>
               <dd>
-                {[user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
-                  "Not provided"}
+                {[user?.first_name, user?.last_name]
+                  .filter(Boolean)
+                  .join(" ") || "Not provided"}
               </dd>
             </div>
 
@@ -376,7 +481,153 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
         )}
       </section>
 
+      {/* Change password. */}
+      <section className="profile-card">
+        <div className="profile-card-title profile-card-title-actions">
+          <div className="profile-card-heading">
+            <KeyRound size={22} />
+            <h2>Account Security</h2>
+          </div>
 
+          {!isChangingPassword && (
+            <button
+              type="button"
+              className="edit-profile-button"
+              onClick={() => {
+                setPasswordForm({
+                  current_password: "",
+                  new_password: "",
+                  confirm_password: "",
+                });
+                setPasswordMessage("");
+                setPasswordError("");
+                setIsChangingPassword(true);
+              }}
+            >
+              <KeyRound size={15} /> Change password
+            </button>
+          )}
+        </div>
+
+        {passwordMessage && (
+          <p className="profile-success" role="status">
+            {passwordMessage}
+          </p>
+        )}
+
+        {passwordError && (
+          <p className="profile-error" role="alert">
+            {passwordError}
+          </p>
+        )}
+
+        {isChangingPassword && (
+          <form
+            className="profile-edit-form password-edit-form"
+            onSubmit={handleSavePassword}
+          >
+            {[
+              {
+                name: "current_password",
+                label: "Current password",
+                key: "current",
+              },
+              {
+                name: "new_password",
+                label: "New password",
+                key: "new",
+              },
+              {
+                name: "confirm_password",
+                label: "Confirm new password",
+                key: "confirm",
+              },
+            ].map((field) => (
+              <label key={field.name}>
+                {field.label}
+
+                <span className="password-input-wrap">
+                  <input
+                    type={
+                      showPasswords[field.key] ? "text" : "password"
+                    }
+                    name={field.name}
+                    value={passwordForm[field.name]}
+                    onChange={handlePasswordChange}
+                    required
+                    autoComplete={
+                      field.key === "current"
+                        ? "current-password"
+                        : "new-password"
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    className="password-visibility-button"
+                    aria-label={
+                      showPasswords[field.key]
+                        ? `Hide ${field.label.toLowerCase()}`
+                        : `Show ${field.label.toLowerCase()}`
+                    }
+                    onClick={() =>
+                      setShowPasswords((previous) => ({
+                        ...previous,
+                        [field.key]: !previous[field.key],
+                      }))
+                    }
+                  >
+                    {showPasswords[field.key] ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </span>
+              </label>
+            ))}
+
+            <p className="password-help-text">
+              Choose a strong password that meets the password requirements.
+            </p>
+
+            <div className="profile-edit-actions">
+              <button
+                type="submit"
+                className="profile-save-button"
+                disabled={savingPassword}
+              >
+                <Save size={16} />
+                {savingPassword ? "Updating..." : "Update password"}
+              </button>
+
+              <button
+                type="button"
+                className="profile-cancel-edit-button"
+                disabled={savingPassword}
+                onClick={() => {
+                  setIsChangingPassword(false);
+                  setPasswordError("");
+                  setPasswordForm({
+                    current_password: "",
+                    new_password: "",
+                    confirm_password: "",
+                  });
+                  setShowPasswords({
+                    current: false,
+                    new: false,
+                    confirm: false,
+                  });
+                }}
+              >
+                <X size={16} /> Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      {/* Existing order history. */}
       <section className="profile-orders">
         <div className="profile-card-title">
           <Package size={22} />
@@ -416,13 +667,13 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                     </p>
                   </div>
 
-                  <span
-                    className={`profile-status status-${orderStatus}`}
-                  >
+                  <span className={`profile-status status-${orderStatus}`}>
                     {orderStatus?.replaceAll("_", " ")}
                   </span>
                 </div>
-                <OrderTimeline status={orderStatus} />     
+
+                <OrderTimeline status={orderStatus} />
+
                 <section className="delivery-details-card">
                   <button
                     type="button"
@@ -473,12 +724,16 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
 
                         <p>
                           <span>Courier</span>
-                          <strong>{order.courier_name || "Not assigned yet"}</strong>
+                          <strong>
+                            {order.courier_name || "Not assigned yet"}
+                          </strong>
                         </p>
 
                         <p>
                           <span>Tracking number</span>
-                          <strong>{order.tracking_number || "Not available yet"}</strong>
+                          <strong>
+                            {order.tracking_number || "Not available yet"}
+                          </strong>
                         </p>
 
                         <p>
@@ -514,7 +769,6 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                   )}
                 </section>
 
-
                 <div className="profile-order-items">
                   {order.items.map((item, index) => (
                     <button
@@ -535,20 +789,30 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                           No image
                         </div>
                       )}
+
                       <div className="profile-product-info">
                         <strong>{item.product_name}</strong>
-                        <span>Size: {item.product_size || "Not specified"}</span>
-                        <span>Condition: {item.product_condition || "Not specified"}</span>
+                        <span>
+                          Size: {item.product_size || "Not specified"}
+                        </span>
+                        <span>
+                          Condition: {item.product_condition || "Not specified"}
+                        </span>
                         <span>Quantity: {item.quantity}</span>
                       </div>
 
                       <div className="profile-product-price">
-                        <strong>₹{Number(item.price_at_purchase).toFixed(2)}</strong>
-                        <span>Subtotal: ₹{Number(item.subtotal).toFixed(2)}</span>
+                        <strong>
+                          ₹{Number(item.price_at_purchase).toFixed(2)}
+                        </strong>
+                        <span>
+                          Subtotal: ₹{Number(item.subtotal).toFixed(2)}
+                        </span>
                       </div>
                     </button>
                   ))}
                 </div>
+
                 <div className="profile-order-total">
                   <span>Order total</span>
                   <strong>
@@ -561,7 +825,6 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
                   through WhatsApp.
                 </p>
 
-                {/* Show cancellation only for eligible order statuses. */}
                 {canCancel && (
                   <button
                     type="button"
@@ -582,7 +845,8 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
       <button className="profile-logout" onClick={onLogout}>
         <LogOut size={17} /> Log out
       </button>
-      
+
+      {/* Existing ordered-product details modal. */}
       {selectedProduct && (
         <div
           className="product-detail-overlay"
@@ -617,7 +881,10 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
             )}
 
             <div className="product-detail-content">
-              <p className="profile-eyebrow">OCTOBER · THRIFT AND CREATE</p>
+              <p className="profile-eyebrow">
+                OCTOBER · THRIFT AND CREATE
+              </p>
+
               <h2 id="product-detail-title">
                 {selectedProduct.product_name}
               </h2>
@@ -634,16 +901,25 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
               <dl className="product-detail-specs">
                 <div>
                   <dt>Category</dt>
-                  <dd>{selectedProduct.product_category || "Not specified"}</dd>
+                  <dd>
+                    {selectedProduct.product_category || "Not specified"}
+                  </dd>
                 </div>
+
                 <div>
                   <dt>Size</dt>
-                  <dd>{selectedProduct.product_size || "Not specified"}</dd>
+                  <dd>
+                    {selectedProduct.product_size || "Not specified"}
+                  </dd>
                 </div>
+
                 <div>
                   <dt>Condition</dt>
-                  <dd>{selectedProduct.product_condition || "Not specified"}</dd>
+                  <dd>
+                    {selectedProduct.product_condition || "Not specified"}
+                  </dd>
                 </div>
+
                 <div>
                   <dt>Quantity ordered</dt>
                   <dd>{selectedProduct.quantity}</dd>
@@ -653,7 +929,6 @@ const ProfilePage = ({ user, accessToken, onBack, onLogout }) => {
           </section>
         </div>
       )}
-
     </main>
   );
 };

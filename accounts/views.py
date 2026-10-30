@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from .serializers import (
     RegisterSerializer,
     ProfileUpdateSerializer,
+    ChangePasswordSerializer
 )
 
 
@@ -50,4 +51,26 @@ class ProfileAPIView(APIView):
                 "last_name": user.last_name,
                 "email": user.email,
             },
+        })
+
+
+    
+class ChangePasswordAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        request.user.set_password(
+            serializer.validated_data["new_password"]
+        )
+        request.user.save(update_fields=["password"])
+
+        return Response({
+            "message": "Password changed successfully. Please log in again."
         })
